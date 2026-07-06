@@ -160,7 +160,13 @@ Inputs: the plan/expected behavior (from conversation context or an explicit arg
    - FAIL → report mismatch precisely, return to code, fix, goto 3
 8. Loop guard: after 3 consecutive failed iterations on the same assertion,
    stop and report instead of thrashing
+9. Cleanup: delete every screenshot taken during the run once the report is
+   delivered. If the user asked to keep them ("keep the screenshots"), move
+   them to <project>/.claude/verify-screenshots/<timestamp>/ instead and say so.
 ```
+
+Screenshots are working evidence, not artifacts: they live in a temp directory
+during the run, are read into the report, then deleted by default.
 
 ### 4.8 Setup skill (`/shopify-embedded-app-verify:setup`)
 
