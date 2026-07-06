@@ -99,5 +99,5 @@ toasts, network side effects visible in the UI.
 | `ensure-browser.mjs` non-zero | Show its message verbatim; stop |
 | Redirect to `accounts.shopify.com` | Session expired → step 4.2 |
 | Tunnel probe connection failure | Ask user to start their dev server; stop |
-| Iframe never appears | Screenshot the admin page; report what actually rendered (404 / install prompt / error banner); if 404, the app may not be installed on this store |
+| Iframe never appears | Screenshot the admin page; report what actually rendered (404 / install prompt / error banner); if 404, the app may not be installed on this store — point the user to the install link in their dev server output |
 | 3 consecutive assertion failures | Stop and report; do not thrash |
