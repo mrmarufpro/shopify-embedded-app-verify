@@ -1,0 +1,30 @@
+{
+  "name": "shopify-embedded-app-verify",
+  "displayName": "Shopify Embedded App Verify",
+  "description": "Agentic verify loop for Shopify embedded apps — drives the real, authenticated Shopify admin in the developer's own browser via CDP.",
+  "version": "0.1.0",
+  "author": { "name": "Maruf Ahmed" },
+  "repository": "https://github.com/mrmarufpro/shopify-embedded-app-verify",
+  "license": "MIT",
+  "keywords": ["shopify", "embedded-app", "verification", "playwright", "browser", "agentic"],
+  "userConfig": {
+    "browser": {
+      "type": "string",
+      "title": "Browser",
+      "description": "comet | chrome | chromium | brave | edge — or an absolute path to any Chromium-based browser binary",
+      "default": "chrome"
+    },
+    "mode": {
+      "type": "string",
+      "title": "Session mode",
+      "description": "attach = your daily browser + its logged-in session (browser must allow CDP on the default profile, e.g. Comet). profile = dedicated automation profile, one-time Shopify login (works with every Chromium; required for Chrome/Edge).",
+      "default": "profile"
+    },
+    "cdp_port": {
+      "type": "string",
+      "title": "CDP port",
+      "description": "Local Chrome DevTools Protocol port the browser listens on",
+      "default": "9222"
+    }
+  }
+}

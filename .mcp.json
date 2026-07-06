@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "shopify-verify-browser": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--cdp-endpoint", "http://localhost:${user_config.cdp_port}"]
+    }
+  }
+}
