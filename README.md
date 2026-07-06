@@ -51,10 +51,13 @@ shopify-embedded-app-verify → configure.
   setup-embedded-app-verify skill will tell you to switch to `profile`.
 - **`profile`** — works with any Chromium-based browser, including Chrome and
   Edge. It launches (or reuses) a dedicated automation profile at
-  `~/.claude-browser-profiles/shopify-verify`, isolated from your normal
-  browsing profile. You log into the Shopify admin in that profile once; the
-  session then persists on disk for weeks, across reboots, until Shopify
-  itself expires it.
+  `~/.claude-browser-profiles/shopify-verify-<browser>`, isolated from your
+  normal browsing profile. Each browser gets its own profile (Chromium forks
+  sharing one profile leak preferences into each other), so you log into the
+  Shopify admin once per browser; the session then persists on disk for
+  weeks, across reboots, until Shopify itself expires it.
+
+Config changes reach skills in new sessions (or after `/reload-plugins`).
 
 ## 4. Per-project setup
 
@@ -88,9 +91,10 @@ it for you — running the app is your job; verifying it is the agent's.
 
 Just ask, after making a change: "verify that the settings page save button
 works now" or "check that the new discount banner shows up." The agent runs
-the loop: preflight the browser and dev server, open a separate verify
-window (your own tabs are never touched), navigate to the embedded app,
-pierce its iframe, interact per the plan, capture an accessibility snapshot
+the loop: preflight the browser and dev server, open a verify window — in
+`profile` mode the automation browser launches directly on the app page; in
+`attach` mode a dedicated new window opens so your own tabs are never
+touched — pierce the app's iframe, interact per the plan, capture an accessibility snapshot
 plus screenshots as evidence, and compare the result against what was
 expected. On a mismatch it reports the exact difference, fixes the code, and
 re-verifies — up to 3 consecutive failures on the same assertion before it
@@ -116,7 +120,7 @@ moved to `<project>/.claude/verify-screenshots/<timestamp>/` instead.
 
 | Platform | Status |
 |----------|--------|
-| macOS | Proven live end-to-end against a real dev store (see `docs/specs/2026-07-06-shopify-embedded-app-verify-design.md` §3) |
+| macOS | Proven live end-to-end against a real dev store — full acceptance matrix (attach+Comet and profile+Chrome) passed 2026-07-06 on v1.0.0 |
 | Windows | `ensure-browser.mjs`'s binary-resolution, launch, and quit logic is unit-tested and runs in CI on `windows-latest`; not yet verified against a live browser/Shopify session |
 | Linux | Same as Windows — unit-tested paths, CI-covered on `ubuntu-latest`; not yet verified live |
 
@@ -126,7 +130,8 @@ please report back (working or not) so the matrix above can be updated.
 ## 8. Manual acceptance checklist
 
 Run these two scenarios before trusting a change to the plugin. Each is
-setup once, then a verify smoke test.
+setup once, then a verify smoke test. Both scenarios last passed
+2026-07-06 on macOS (v1.0.0).
 
 **attach + Comet**
 
