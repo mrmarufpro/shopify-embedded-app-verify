@@ -48,14 +48,32 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
 
 ## 3. Open the verify window
 
-Create a separate browser window so the developer's windows stay untouched.
-Open it directly at the verification URL — no `about:blank` hop:
+Verification URL:
 `https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>`
 (`<page-path>` = the app route relevant to the change being verified).
 
-Use `browser_run_code_unsafe` (the code is invoked with the current page as
-its single argument; if the tool reports no open tab, run `browser_tabs`
-action list first so one is selected):
+Keep the developer's windows untouched. First `browser_tabs` (action: list).
+
+**Case A — the browser was just launched by the preflight** (the list shows
+only blank tabs: `about:blank` / `chrome://new-tab-page`): reuse that
+startup window instead of opening a second one. Select it, grab its
+targetId with `browser_run_code_unsafe`:
+
+```js
+async (page) => {
+  const session = await page.context().newCDPSession(page);
+  const { targetInfo } = await session.send("Target.getTargetInfo");
+  await session.detach();
+  return targetInfo.targetId;
+}
+```
+
+then `browser_navigate` it to the verification URL.
+
+**Case B — any non-blank tabs exist** (attach mode / browser already in
+use): open a dedicated verify window directly at the verification URL — no
+`about:blank` hop — with `browser_run_code_unsafe` (the code is invoked
+with the current page as its single argument):
 
 ```js
 async (page) => {
@@ -69,13 +87,13 @@ async (page) => {
 }
 ```
 
-**Save the returned targetId — step 6 closes the window with it.**
-
 Then `browser_tabs` (action: list) and select the newly added entry — the
 tab that was not in the list before creation (new tabs are appended at the
 end). Do not pick the first URL match: the developer may already have a tab
-open on the same admin page. Every subsequent navigation/interaction
-happens in this tab only.
+open on the same admin page.
+
+**In both cases: save the targetId — step 6 closes the window with it.**
+Every subsequent navigation/interaction happens in this tab only.
 
 ## 4. Drive the app
 

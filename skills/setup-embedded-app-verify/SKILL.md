@@ -43,10 +43,28 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.b
 
 ## 3. Open the verify window and check Shopify authentication
 
-Never open tabs in the developer's own windows. Open a dedicated verify
-window with `browser_run_code_unsafe` (the code is invoked with the current
-page as its single argument; if the tool reports no open tab, run
-`browser_tabs` action list first so one is selected):
+Never open tabs in the developer's own windows. First `browser_tabs`
+(action: list).
+
+**Case A — the browser was just launched by the preflight** (the list shows
+only blank tabs: `about:blank` / `chrome://new-tab-page`): reuse that
+startup window instead of opening a second one. Select it, grab its
+targetId with `browser_run_code_unsafe`:
+
+```js
+async (page) => {
+  const session = await page.context().newCDPSession(page);
+  const { targetInfo } = await session.send("Target.getTargetInfo");
+  await session.detach();
+  return targetInfo.targetId;
+}
+```
+
+then `browser_navigate` it to `https://admin.shopify.com`.
+
+**Case B — any non-blank tabs exist** (attach mode / browser already in
+use): open a dedicated verify window with `browser_run_code_unsafe` (the
+code is invoked with the current page as its single argument):
 
 ```js
 async (page) => {
@@ -60,11 +78,12 @@ async (page) => {
 }
 ```
 
-**Save the returned targetId — step 5 closes the window with it.**
 Then `browser_tabs` (action: list) and select the newly added entry — the
 tab that was not in the list before creation (new tabs are appended at the
 end); do not pick the first URL match, the developer may already have an
 admin tab open.
+
+**In both cases: save the targetId — step 5 closes the window with it.**
 
 - Lands on a store dashboard (`admin.shopify.com/store/...`) → authenticated.
 - Redirects to `accounts.shopify.com` login → tell the user: "Log into the

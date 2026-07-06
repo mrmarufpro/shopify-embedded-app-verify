@@ -107,8 +107,8 @@ moved to `<project>/.claude/verify-screenshots/<timestamp>/` instead.
   this plainly; developers quit/relaunch the browser normally to close the
   port. `profile` mode confines exposure to the automation profile's
   sessions only.
-- `browser_run_code_unsafe` is used solely for the fixed window-creation
-  and window-close snippets.
+- `browser_run_code_unsafe` is used solely for the fixed window-creation,
+  window-reuse and window-close snippets.
 - No credentials are ever stored by the plugin; sessions live in the browser
   profile as with normal use.
 

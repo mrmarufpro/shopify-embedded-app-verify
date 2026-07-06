@@ -154,7 +154,8 @@ The verify skill runs this (`node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.m
 
 To avoid disturbing the developer's open tabs, all verification happens in a dedicated window:
 
-- Created through the MCP server itself via `browser_run_code_unsafe` executing `page.context().newCDPSession(page)` → `Target.createTarget({url, newWindow: true})` — no bundled Node dependencies. `url` is the actual destination (verification URL / admin dashboard), so the window opens directly on it with no `about:blank` hop. The returned `targetId` is saved for cleanup.
+- If the preflight just launched the browser (tab list shows only blank tabs — `about:blank` / `chrome://new-tab-page`), the skill reuses that startup window: reads its `targetId` via `Target.getTargetInfo` and navigates it to the destination. No second window for a browser nobody is using.
+- Otherwise (attach mode / browser already in use): created through the MCP server itself via `browser_run_code_unsafe` executing `page.context().newCDPSession(page)` → `Target.createTarget({url, newWindow: true})` — no bundled Node dependencies. `url` is the actual destination (verification URL / admin dashboard), so the window opens directly on it with no `about:blank` hop. The returned `targetId` is saved for cleanup.
 - The skill then selects the newly added tab (`browser_tabs` — the entry absent from the pre-creation list; not the first URL match, since the developer may have the same admin page open) and performs every subsequent `browser_navigate` / `browser_click` / `browser_snapshot` in it.
 - Loop end: window closed by default via `Target.closeTarget({targetId})` with the saved id — never `browser_close`/close-by-index, which act on the MCP's current tab and misfire among the developer's tabs. `keep the window open` in the user's request leaves it for manual inspection.
 
@@ -213,7 +214,7 @@ One-time per developer per project:
 ## 6. Security considerations
 
 - An open CDP port allows **any local process** to control the browser and all its sessions. Localhost-only, but real. README and setup skill state this plainly; developers quit/relaunch the browser normally to close the port. `profile` mode confines exposure to the automation profile's sessions only.
-- `browser_run_code_unsafe` is used solely for the fixed window-creation and window-close snippets.
+- `browser_run_code_unsafe` is used solely for the fixed window-creation, window-reuse (`Target.getTargetInfo`) and window-close snippets.
 - No credentials are ever stored by the plugin; sessions live in the browser profile as with normal use.
 
 ## 7. Testing strategy
