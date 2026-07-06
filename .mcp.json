@@ -2,7 +2,16 @@
   "mcpServers": {
     "shopify-verify-browser": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--cdp-endpoint", "http://127.0.0.1:${user_config.cdp_port}"]
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--cdp-endpoint",
+        "http://127.0.0.1:${user_config.cdp_port}",
+        "--output-dir",
+        "${CLAUDE_PLUGIN_ROOT}/.mcp-output",
+        "--output-max-size",
+        "50000000"
+      ]
     }
   }
 }

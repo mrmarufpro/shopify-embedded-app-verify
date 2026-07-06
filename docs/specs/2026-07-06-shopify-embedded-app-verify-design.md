@@ -97,13 +97,19 @@ Values reach the plugin via `${user_config.*}` substitution (MCP config) and `CL
   "mcpServers": {
     "shopify-verify-browser": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--cdp-endpoint", "http://localhost:${user_config.cdp_port}"]
+      "args": [
+        "-y", "@playwright/mcp@latest",
+        "--cdp-endpoint", "http://127.0.0.1:${user_config.cdp_port}",
+        "--output-dir", "${CLAUDE_PLUGIN_ROOT}/.mcp-output",
+        "--output-max-size", "50000000"
+      ]
     }
   }
 }
 ```
 
 - Attaches to whatever Chromium listens on the port — same MCP config for both modes; the mode only changes how the browser was launched.
+- `--output-dir` keeps the server's working artifacts (accessibility-snapshot `.yml` files, screenshots) inside the plugin's own directory: without it they land in `<project cwd>/.playwright-mcp/` and pollute the developer's git status. `--output-max-size` evicts old artifacts past ~50 MB.
 - Connection is lazy (first tool call), so a dead port at session start is harmless; the verify skill's preflight fixes the port before any tool call.
 - Coexists with any personal isolated Playwright MCP the developer already has.
 

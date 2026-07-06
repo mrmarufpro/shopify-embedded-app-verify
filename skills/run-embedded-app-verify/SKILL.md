@@ -90,8 +90,10 @@ happens in this tab only.
    selector. Never `ref=f6e393` and never `iframe[...] >> [ref=...]` — both
    fail ("Unknown engine ref" / "does not match any elements"). Refs go
    stale after navigation or re-render: re-snapshot and use the fresh ref.
-5. Evidence: accessibility snapshots plus screenshots. Save screenshots to a
-   temp location (never the project tree) and remember every path.
+5. Evidence: accessibility snapshots plus screenshots. Pass a bare filename
+   to `browser_take_screenshot` — the server saves it under the plugin's
+   output directory, outside the project tree. Remember every saved path
+   (the tool result prints it).
 
 ## 5. Assert and loop
 
