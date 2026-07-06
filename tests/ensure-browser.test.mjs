@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import http from "node:http";
 import path from "node:path";
-import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand } from "../scripts/ensure-browser.mjs";
+import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand, probeCdp, waitFor } from "../scripts/ensure-browser.mjs";
 
 const WINDOWS_ENV = {
   PROGRAMFILES: "C:\\Program Files",
@@ -107,4 +108,30 @@ test("processCheckCommand: Windows uses tasklist filter", () => {
     cmd: "tasklist",
     args: ["/FI", "IMAGENAME eq chrome.exe", "/NH"],
   });
+});
+
+test("probeCdp: true when a server answers /json/version", async () => {
+  const fakeCdpServer = http.createServer((request, response) => {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ Browser: "FakeChrome/1.0" }));
+  });
+  await new Promise((resolve) => fakeCdpServer.listen(0, "127.0.0.1", resolve));
+  const port = fakeCdpServer.address().port;
+  assert.equal(await probeCdp(port), true);
+  fakeCdpServer.close();
+});
+
+test("probeCdp: false when nothing listens", async () => {
+  assert.equal(await probeCdp(59999, 500), false);
+});
+
+test("waitFor: resolves true once the check passes", async () => {
+  let callCount = 0;
+  const passesOnThirdCall = () => ++callCount >= 3;
+  assert.equal(await waitFor(passesOnThirdCall, 2000, 10), true);
+});
+
+test("waitFor: resolves false on timeout", async () => {
+  const neverPasses = () => false;
+  assert.equal(await waitFor(neverPasses, 100, 10), false);
 });

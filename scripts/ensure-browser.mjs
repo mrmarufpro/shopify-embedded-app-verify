@@ -84,3 +84,23 @@ export function processCheckCommand(binaryPath, platform) {
   }
   return { cmd: "pgrep", args: ["-f", processName(binaryPath, platform)] };
 }
+
+export async function probeCdp(port, timeoutMs = 2000) {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function waitFor(check, timeoutMs, intervalMs = 500) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return false;
+}
