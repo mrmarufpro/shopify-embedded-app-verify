@@ -47,8 +47,8 @@ shopify-embedded-app-verify → configure.
   ignore `--remote-debugging-port` on the default profile as a security
   hardening measure (see Chrome's [remote debugging port
   note](https://developer.chrome.com/blog/remote-debugging-port)). If you're
-  on Chrome or Edge, `attach` mode will never open a CDP port and the setup
-  skill will tell you to switch to `profile`.
+  on Chrome or Edge, `attach` mode will never open a CDP port and the
+  setup-embedded-app-verify skill will tell you to switch to `profile`.
 - **`profile`** — works with any Chromium-based browser, including Chrome and
   Edge. It launches (or reuses) a dedicated automation profile at
   `~/.claude-browser-profiles/shopify-verify`, isolated from your normal
