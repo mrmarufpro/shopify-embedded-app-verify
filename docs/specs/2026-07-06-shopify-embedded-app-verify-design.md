@@ -1,8 +1,8 @@
-# shopify-admin-verify — Design Specification
+# shopify-embedded-app-verify — Design Specification
 
 **Date:** 2026-07-06
 **Status:** Approved pending review
-**Repo:** standalone Claude Code plugin + marketplace (planned: `mrmarufpro/shopify-admin-verify`)
+**Repo:** standalone Claude Code plugin + marketplace (planned: `mrmarufpro/shopify-embedded-app-verify`)
 
 ## 1. Problem
 
@@ -42,15 +42,15 @@ Known constraint: **Chrome/Edge 136+ silently ignore `--remote-debugging-port` o
 ### 4.1 Plugin layout
 
 ```
-shopify-admin-verify/
+shopify-embedded-app-verify/
 ├── .claude-plugin/
 │   └── plugin.json            # manifest + userConfig schema
 ├── .mcp.json                  # bundled Playwright MCP in CDP-attach mode
 ├── skills/
 │   ├── setup/
-│   │   └── SKILL.md           # /shopify-admin-verify:setup — first-run wizard
+│   │   └── SKILL.md           # /shopify-embedded-app-verify:setup — first-run wizard
 │   └── verify/
-│       └── SKILL.md           # /shopify-admin-verify:verify — the loop
+│       └── SKILL.md           # /shopify-embedded-app-verify:verify — the loop
 ├── scripts/
 │   └── ensure-browser.sh      # dependency-free preflight (bash + curl only)
 ├── docs/specs/                # this spec
@@ -60,8 +60,8 @@ shopify-admin-verify/
 Marketplace: same repo doubles as marketplace — a marketplace manifest (`marketplace.json`, placed per current Claude Code docs) lists this plugin with a relative source path. Install flow:
 
 ```
-claude plugin marketplace add mrmarufpro/shopify-admin-verify
-/plugin install shopify-admin-verify@shopify-admin-verify
+claude plugin marketplace add mrmarufpro/shopify-embedded-app-verify
+/plugin install shopify-embedded-app-verify@shopify-embedded-app-verify
 ```
 
 ### 4.2 Configuration model — three layers
@@ -139,7 +139,7 @@ To avoid disturbing the developer's open tabs, all verification happens in a ded
 - The skill then selects the new tab (`browser_tabs`) and performs every subsequent `browser_navigate` / `browser_click` / `browser_snapshot` in it.
 - Loop end: window closed by default; `keep the window open` in the user's request leaves it for manual inspection.
 
-### 4.7 The verify loop (skill `/shopify-admin-verify:verify`)
+### 4.7 The verify loop (skill `/shopify-embedded-app-verify:verify`)
 
 Inputs: the plan/expected behavior (from conversation context or an explicit argument).
 
@@ -162,7 +162,7 @@ Inputs: the plan/expected behavior (from conversation context or an explicit arg
    stop and report instead of thrashing
 ```
 
-### 4.8 Setup skill (`/shopify-admin-verify:setup`)
+### 4.8 Setup skill (`/shopify-embedded-app-verify:setup`)
 
 One-time per developer per project:
 
