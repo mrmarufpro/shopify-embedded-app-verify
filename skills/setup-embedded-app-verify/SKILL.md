@@ -34,7 +34,7 @@ page as its single argument; if the tool reports no open tab, run
 async (page) => {
   const session = await page.context().newCDPSession(page);
   const { targetId } = await session.send("Target.createTarget", {
-    url: "about:blank",
+    url: "https://admin.shopify.com",
     newWindow: true,
   });
   await session.detach();
@@ -43,8 +43,10 @@ async (page) => {
 ```
 
 **Save the returned targetId — step 5 closes the window with it.**
-Then `browser_tabs` (action: list) and select the new `about:blank` entry —
-match by URL, never by position. Navigate it to `https://admin.shopify.com`.
+Then `browser_tabs` (action: list) and select the newly added entry — the
+tab that was not in the list before creation (new tabs are appended at the
+end); do not pick the first URL match, the developer may already have an
+admin tab open.
 
 - Lands on a store dashboard (`admin.shopify.com/store/...`) → authenticated.
 - Redirects to `accounts.shopify.com` login → tell the user: "Log into the

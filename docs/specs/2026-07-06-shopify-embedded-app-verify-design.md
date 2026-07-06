@@ -143,8 +143,8 @@ The verify skill runs this (`node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.m
 
 To avoid disturbing the developer's open tabs, all verification happens in a dedicated window:
 
-- Created through the MCP server itself via `browser_run_code_unsafe` executing `page.context().newCDPSession(page)` → `Target.createTarget({url, newWindow: true})` — no bundled Node dependencies. The returned `targetId` is saved for cleanup.
-- The skill then selects the new `about:blank` tab (`browser_tabs`, matched by URL — never by position) and performs every subsequent `browser_navigate` / `browser_click` / `browser_snapshot` in it.
+- Created through the MCP server itself via `browser_run_code_unsafe` executing `page.context().newCDPSession(page)` → `Target.createTarget({url, newWindow: true})` — no bundled Node dependencies. `url` is the actual destination (verification URL / admin dashboard), so the window opens directly on it with no `about:blank` hop. The returned `targetId` is saved for cleanup.
+- The skill then selects the newly added tab (`browser_tabs` — the entry absent from the pre-creation list; not the first URL match, since the developer may have the same admin page open) and performs every subsequent `browser_navigate` / `browser_click` / `browser_snapshot` in it.
 - Loop end: window closed by default via `Target.closeTarget({targetId})` with the saved id — never `browser_close`/close-by-index, which act on the MCP's current tab and misfire among the developer's tabs. `keep the window open` in the user's request leaves it for manual inspection.
 
 ### 4.7 The verify loop (skill `/shopify-embedded-app-verify:verify`)
@@ -158,8 +158,9 @@ Inputs: the plan/expected behavior (from conversation context or an explicit arg
    c. dev server + tunnel reachable?         → probe application_url from shopify.app.toml;
                                                if down, tell the user to start their dev server
                                                (never auto-start — running the app is the user's job)
-2. Open verify window (§4.6)
-3. Navigate: https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>
+2. Open verify window (§4.6) directly at
+   https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>
+3. On later loop iterations: reload / re-navigate the same verify tab
 4. Wait for the app iframe; pierce with the configured iframe selector
 5. Interact per plan: snapshot → click/type/select → wait
 6. Capture evidence: accessibility snapshot + screenshot

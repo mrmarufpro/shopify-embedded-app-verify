@@ -39,6 +39,10 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
 ## 3. Open the verify window
 
 Create a separate browser window so the developer's windows stay untouched.
+Open it directly at the verification URL — no `about:blank` hop:
+`https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>`
+(`<page-path>` = the app route relevant to the change being verified).
+
 Use `browser_run_code_unsafe` (the code is invoked with the current page as
 its single argument; if the tool reports no open tab, run `browser_tabs`
 action list first so one is selected):
@@ -47,7 +51,7 @@ action list first so one is selected):
 async (page) => {
   const session = await page.context().newCDPSession(page);
   const { targetId } = await session.send("Target.createTarget", {
-    url: "about:blank",
+    url: "<the verification URL above>",
     newWindow: true,
   });
   await session.detach();
@@ -57,15 +61,17 @@ async (page) => {
 
 **Save the returned targetId — step 6 closes the window with it.**
 
-Then `browser_tabs` (action: list) and select the new `about:blank` entry.
-Match it by URL, never by position: the developer may have dozens of tabs
-and list order is not stable. Every subsequent navigation/interaction
+Then `browser_tabs` (action: list) and select the newly added entry — the
+tab that was not in the list before creation (new tabs are appended at the
+end). Do not pick the first URL match: the developer may already have a tab
+open on the same admin page. Every subsequent navigation/interaction
 happens in this tab only.
 
 ## 4. Drive the app
 
-1. Navigate to `https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>`
-   (`<page-path>` = the app route relevant to the change being verified).
+1. The verify window already loads the verification URL from step 3 — wait
+   for it. On later loop iterations, reload / `browser_navigate` this same
+   tab instead of opening a new window.
 2. If the URL redirects to `accounts.shopify.com`: the Shopify session expired.
    - attach mode → ask the user to log into the Shopify admin in their browser, wait, retry.
    - profile mode → leave the verify window open on the login page, ask the user
