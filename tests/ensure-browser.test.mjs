@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import path from "node:path";
-import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand, probeCdp, waitFor, resolveConfig, classifyCdpOwner, listenerPidCommand, processCommandLineCommand } from "../scripts/ensure-browser.mjs";
+import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand, probeCdp, waitFor, resolveConfig, classifyCdpOwner, listenerPidCommand, processCommandLineCommand, browserStateLabel } from "../scripts/ensure-browser.mjs";
 
 const WINDOWS_ENV = {
   PROGRAMFILES: "C:\\Program Files",
@@ -340,4 +340,13 @@ test("launchArgs: profile mode without a URL stays URL-free", () => {
     "--no-default-browser-check",
     "--remote-debugging-port=9223",
   ]);
+});
+
+test("browserStateLabel: profile launch with URL means the lone tab is the verify window", () => {
+  assert.equal(browserStateLabel("profile", VERIFICATION_URL), "launched-at-url");
+});
+
+test("browserStateLabel: attach relaunch restores the developer's tabs — plain 'launched'", () => {
+  assert.equal(browserStateLabel("attach", VERIFICATION_URL), "launched");
+  assert.equal(browserStateLabel("profile", ""), "launched");
 });

@@ -40,7 +40,7 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
    time; blank or literal placeholders are fine — the script defaults to
    chrome / profile / 9222.)
    - Exit 0 → CDP is live. Note the `BROWSER_STATE:` line in the output —
-     `launched` or `reused` — step 3 branches on it.
+     `launched-at-url`, `launched`, or `reused` — step 3 branches on it.
    - Non-zero → show the script's stderr message to the user verbatim and stop.
      (`CDP_BLOCKED_DEFAULT_PROFILE` means: tell the user to switch the plugin's
      mode option to "profile" via /plugin → configure. `BROWSER_MISMATCH`
@@ -55,10 +55,10 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
 
 Keep the developer's windows untouched.
 
-**Preflight said `BROWSER_STATE: launched`** (profile mode): the browser
-opened directly at the verification URL — its only tab IS the verify
-window. `browser_tabs` (action: list), select that tab, grab its targetId
-with `browser_run_code_unsafe`, and skip to step 4:
+**Preflight said `BROWSER_STATE: launched-at-url`** (profile mode): the
+browser opened directly at the verification URL — its only tab IS the
+verify window. `browser_tabs` (action: list), select that tab, grab its
+targetId with `browser_run_code_unsafe`, and skip to step 4:
 
 ```js
 async (page) => {
@@ -69,8 +69,10 @@ async (page) => {
 }
 ```
 
-**Preflight said `BROWSER_STATE: reused`**: `browser_tabs` (action: list),
-then:
+**Preflight said `BROWSER_STATE: launched` or `reused`**: the browser's
+tabs belong to the developer (an attach-mode relaunch restores their
+session — those tabs are NOT yours, whatever they show). `browser_tabs`
+(action: list), then:
 
 **Case A — the list shows only blank tabs** (`about:blank` /
 `chrome://new-tab-page` — a browser nobody is using): reuse that startup

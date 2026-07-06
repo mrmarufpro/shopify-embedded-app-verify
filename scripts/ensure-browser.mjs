@@ -193,6 +193,14 @@ export function inspectCdpOwner(port, platform) {
   return { pid, commandLine };
 }
 
+// "launched-at-url": profile launch opened directly at the destination —
+// the lone tab IS the verify window. Plain "launched" (attach relaunch,
+// which restores the developer's own tabs; or no URL given) must be treated
+// like "reused" by the skills: pick/create a verify tab explicitly.
+export function browserStateLabel(mode, url) {
+  return mode === "profile" && url ? "launched-at-url" : "launched";
+}
+
 export async function probeCdp(port, timeoutMs = 2000) {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
@@ -320,7 +328,7 @@ async function main() {
     }
     fail("PORT_TIMEOUT", `CDP port ${port} did not open within 20s of launching ${binaryPath}.`);
   }
-  console.log("BROWSER_STATE: launched");
+  console.log(`BROWSER_STATE: ${browserStateLabel(mode, url)}`);
   console.log(`CDP alive on ${port}`);
 }
 

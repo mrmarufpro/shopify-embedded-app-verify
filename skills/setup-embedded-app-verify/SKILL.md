@@ -30,8 +30,8 @@ Run:
 node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.browser}" --mode "${user_config.mode}" --port "${user_config.cdp_port}" --url "https://admin.shopify.com"
 ```
 
-Note the `BROWSER_STATE:` line in the output — `launched` or `reused` —
-step 3 branches on it.
+Note the `BROWSER_STATE:` line in the output — `launched-at-url`,
+`launched`, or `reused` — step 3 branches on it.
 
 - Exit 0 → continue.
 - `CDP_BLOCKED_DEFAULT_PROFILE` → explain: this browser refuses CDP on its
@@ -48,11 +48,11 @@ step 3 branches on it.
 
 Never open tabs in the developer's own windows.
 
-**Preflight said `BROWSER_STATE: launched`** (profile mode): the browser
-opened directly at `https://admin.shopify.com` — its only tab IS the
-verify window. `browser_tabs` (action: list), select that tab, grab its
-targetId with `browser_run_code_unsafe`, and continue to the auth check
-below:
+**Preflight said `BROWSER_STATE: launched-at-url`** (profile mode): the
+browser opened directly at `https://admin.shopify.com` — its only tab IS
+the verify window. `browser_tabs` (action: list), select that tab, grab
+its targetId with `browser_run_code_unsafe`, and continue to the auth
+check below:
 
 ```js
 async (page) => {
@@ -63,8 +63,10 @@ async (page) => {
 }
 ```
 
-**Preflight said `BROWSER_STATE: reused`**: `browser_tabs` (action: list),
-then:
+**Preflight said `BROWSER_STATE: launched` or `reused`**: the browser's
+tabs belong to the developer (an attach-mode relaunch restores their
+session — those tabs are NOT yours, whatever they show, even an admin
+dashboard). `browser_tabs` (action: list), then:
 
 **Case A — the list shows only blank tabs** (`about:blank` /
 `chrome://new-tab-page` — a browser nobody is using): reuse that startup
