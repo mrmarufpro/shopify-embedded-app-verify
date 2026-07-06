@@ -82,7 +82,6 @@ Values reach the plugin via `${user_config.*}` substitution (MCP config) and `CL
 {
   "appHandle": "storeseo-dev",
   "storeDomain": "store-seo-app-test",
-  "devCommand": "pnpm dev",
   "iframeSelector": "iframe[name=\"app-iframe\"]"
 }
 ```
@@ -148,8 +147,8 @@ Inputs: the plan/expected behavior (from conversation context or an explicit arg
    a. ensure-browser.sh                      → CDP alive
    b. project config exists?                 → else run setup flow inline
    c. dev server + tunnel reachable?         → probe application_url from shopify.app.toml;
-                                               if down, tell the user to start the dev command
-                                               (do NOT auto-start; it may already run in their terminal)
+                                               if down, tell the user to start their dev server
+                                               (never auto-start — running the app is the user's job)
 2. Open verify window (§4.6)
 3. Navigate: https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>
 4. Wait for the app iframe; pierce with the configured iframe selector
