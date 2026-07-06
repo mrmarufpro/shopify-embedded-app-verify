@@ -1,0 +1,14 @@
+{
+  "name": "shopify-embedded-app-verify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code plugin: agentic verify loop for Shopify embedded apps via the developer's authenticated browser",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  }
+}
