@@ -110,6 +110,22 @@ test("processCheckCommand: Windows uses tasklist filter", () => {
   });
 });
 
+const COMET_WIN_FORWARD_SLASH_BINARY = "C:/Browsers/comet.exe";
+
+test("quitCommand: Windows binary path with forward slashes still resolves basename", () => {
+  assert.deepEqual(quitCommand(COMET_WIN_FORWARD_SLASH_BINARY, "win32"), {
+    cmd: "taskkill",
+    args: ["/IM", "comet.exe"],
+  });
+});
+
+test("processCheckCommand: Windows binary path with forward slashes still resolves basename", () => {
+  assert.deepEqual(processCheckCommand(COMET_WIN_FORWARD_SLASH_BINARY, "win32"), {
+    cmd: "tasklist",
+    args: ["/FI", "IMAGENAME eq comet.exe", "/NH"],
+  });
+});
+
 test("probeCdp: true when a server answers /json/version", async () => {
   const fakeCdpServer = http.createServer((request, response) => {
     response.writeHead(200, { "Content-Type": "application/json" });

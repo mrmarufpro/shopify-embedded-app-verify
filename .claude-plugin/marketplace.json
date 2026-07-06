@@ -1,6 +1,7 @@
 {
   "name": "shopify-embedded-app-verify",
   "owner": { "name": "Maruf Ahmed" },
+  "description": "Marketplace for the shopify-embedded-app-verify Claude Code plugin — agentic verify loop for Shopify embedded apps.",
   "plugins": [
     {
       "name": "shopify-embedded-app-verify",

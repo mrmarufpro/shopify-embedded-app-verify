@@ -65,8 +65,7 @@ export function launchArgs(mode, port, home) {
 }
 
 function processName(binaryPath, platform) {
-  const base = binaryPath.split(platform === "win32" ? "\\" : "/").pop();
-  return base;
+  return platform === "win32" ? path.win32.basename(binaryPath) : path.posix.basename(binaryPath);
 }
 
 export function quitCommand(binaryPath, platform) {
@@ -137,7 +136,11 @@ function isBrowserRunning(binaryPath, platform) {
 
 async function main() {
   const browser = process.env.CLAUDE_PLUGIN_OPTION_BROWSER || "chrome";
-  const mode = process.env.CLAUDE_PLUGIN_OPTION_MODE || "profile";
+  const mode = (process.env.CLAUDE_PLUGIN_OPTION_MODE || "profile").trim().toLowerCase();
+  if (mode !== "attach" && mode !== "profile") {
+    console.error(`UNEXPECTED: invalid mode "${mode}" — use "attach" or "profile"`);
+    process.exit(1);
+  }
   const port = process.env.CLAUDE_PLUGIN_OPTION_CDP_PORT || "9222";
   const platform = process.platform;
 
@@ -178,7 +181,7 @@ async function main() {
     if (mode === "attach") {
       fail(
         "CDP_BLOCKED_DEFAULT_PROFILE",
-        `"${browser}" ignored --remote-debugging-port on its default profile (Chrome/Edge 136+ block this). Switch the plugin's mode option to "profile".`
+        `CDP port ${port} did not open after relaunching "${browser}". Most likely cause: the browser blocks --remote-debugging-port on its default profile (Chrome/Edge 136+). Switch the plugin's mode option to "profile".`
       );
     }
     fail("PORT_TIMEOUT", `CDP port ${port} did not open within 20s of launching ${binaryPath}.`);
