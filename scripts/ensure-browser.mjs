@@ -168,6 +168,9 @@ async function main() {
     detached: true,
     stdio: "ignore",
   });
+  child.on("error", (error) => {
+    fail("BROWSER_NOT_FOUND", `Failed to launch ${binaryPath}: ${error.message}`);
+  });
   child.unref();
 
   const portAlive = await waitFor(() => probeCdp(port), 20000, 500);
@@ -184,5 +187,8 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  main().catch((error) => {
+    console.error(`UNEXPECTED: ${error?.message ?? error}`);
+    process.exit(1);
+  });
 }
