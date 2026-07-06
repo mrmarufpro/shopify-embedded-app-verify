@@ -4,6 +4,10 @@
 // Zero npm dependencies; Node >= 18.
 
 import path from "node:path";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { pathToFileURL } from "node:url";
 
 export const ERROR_CODES = {
   BROWSER_NOT_FOUND: 2,
@@ -103,4 +107,82 @@ export async function waitFor(check, timeoutMs, intervalMs = 500) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
   return false;
+}
+
+function fail(code, message) {
+  console.error(`${code}: ${message}`);
+  process.exit(ERROR_CODES[code]);
+}
+
+function resolveBinary(browser, platform, env) {
+  for (const candidate of candidatePaths(browser, platform, env)) {
+    if (candidate.includes("/") || candidate.includes("\\")) {
+      if (existsSync(candidate)) return candidate;
+    } else {
+      const which = spawnSync(platform === "win32" ? "where" : "which", [candidate]);
+      if (which.status === 0) return candidate;
+    }
+  }
+  return null;
+}
+
+function isBrowserRunning(binaryPath, platform) {
+  const { cmd, args } = processCheckCommand(binaryPath, platform);
+  const result = spawnSync(cmd, args, { encoding: "utf8" });
+  if (platform === "win32") {
+    return result.status === 0 && (result.stdout || "").toLowerCase().includes(args[1].split("eq ")[1].toLowerCase());
+  }
+  return result.status === 0;
+}
+
+async function main() {
+  const browser = process.env.CLAUDE_PLUGIN_OPTION_BROWSER || "chrome";
+  const mode = process.env.CLAUDE_PLUGIN_OPTION_MODE || "profile";
+  const port = process.env.CLAUDE_PLUGIN_OPTION_CDP_PORT || "9222";
+  const platform = process.platform;
+
+  if (await probeCdp(port)) {
+    console.log(`CDP alive on ${port}`);
+    return;
+  }
+
+  const binaryPath = resolveBinary(browser, platform, process.env);
+  if (!binaryPath) {
+    fail(
+      "BROWSER_NOT_FOUND",
+      `No "${browser}" binary found for ${platform}. Install it or set the plugin's browser option to an absolute binary path.`
+    );
+  }
+
+  if (mode === "attach" && isBrowserRunning(binaryPath, platform)) {
+    console.log("Browser running without CDP — quitting gracefully (tabs restore on relaunch)...");
+    const quit = quitCommand(binaryPath, platform);
+    spawnSync(quit.cmd, quit.args);
+    const quitDone = await waitFor(() => !isBrowserRunning(binaryPath, platform), 15000, 500);
+    if (!quitDone) fail("PORT_TIMEOUT", "Browser did not quit within 15s. Close it manually and retry.");
+  }
+
+  if (mode === "profile") mkdirSync(verifyProfileDir(homedir()), { recursive: true });
+
+  const child = spawn(binaryPath, launchArgs(mode, port, homedir()), {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+
+  const portAlive = await waitFor(() => probeCdp(port), 20000, 500);
+  if (!portAlive) {
+    if (mode === "attach") {
+      fail(
+        "CDP_BLOCKED_DEFAULT_PROFILE",
+        `"${browser}" ignored --remote-debugging-port on its default profile (Chrome/Edge 136+ block this). Switch the plugin's mode option to "profile".`
+      );
+    }
+    fail("PORT_TIMEOUT", `CDP port ${port} did not open within 20s of launching ${binaryPath}.`);
+  }
+  console.log(`CDP alive on ${port}`);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
 }
