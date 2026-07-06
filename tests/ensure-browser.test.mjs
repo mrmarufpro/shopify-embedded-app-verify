@@ -183,7 +183,7 @@ test("resolveConfig: CLI args win over env", () => {
     ["--browser", "comet", "--mode", "profile", "--port", "9222"],
     LEGACY_HOOK_ENV
   );
-  assert.deepEqual(config, { browser: "comet", mode: "profile", port: "9222" });
+  assert.deepEqual(config, { browser: "comet", mode: "profile", port: "9222", url: "" });
 });
 
 test("resolveConfig: no args, no env → defaults", () => {
@@ -191,12 +191,13 @@ test("resolveConfig: no args, no env → defaults", () => {
     browser: "chrome",
     mode: "profile",
     port: "9222",
+    url: "",
   });
 });
 
 test("resolveConfig: blank arg values fall back to defaults", () => {
   const config = resolveConfig(["--browser", "", "--mode", "", "--port", ""], NO_ENV);
-  assert.deepEqual(config, { browser: "chrome", mode: "profile", port: "9222" });
+  assert.deepEqual(config, { browser: "chrome", mode: "profile", port: "9222", url: "" });
 });
 
 test("resolveConfig: unsubstituted ${user_config.*} placeholder treated as unset", () => {
@@ -204,7 +205,7 @@ test("resolveConfig: unsubstituted ${user_config.*} placeholder treated as unset
     ["--browser", "${user_config.browser}", "--mode", "${user_config.mode}", "--port", "${user_config.cdp_port}"],
     NO_ENV
   );
-  assert.deepEqual(config, { browser: "chrome", mode: "profile", port: "9222" });
+  assert.deepEqual(config, { browser: "chrome", mode: "profile", port: "9222", url: "" });
 });
 
 test("resolveConfig: env vars used when args absent (plugin-subprocess callers)", () => {
@@ -212,6 +213,7 @@ test("resolveConfig: env vars used when args absent (plugin-subprocess callers)"
     browser: "brave",
     mode: "attach",
     port: "9333",
+    url: "",
   });
 });
 
@@ -304,4 +306,38 @@ test("processCommandLineCommand: ps on macOS/Linux, Win32_Process on Windows", (
   const windowsCommand = processCommandLineCommand(50269, "win32");
   assert.equal(windowsCommand.cmd, "powershell");
   assert.ok(windowsCommand.args.join(" ").includes("ProcessId=50269"));
+});
+
+const VERIFICATION_URL = "https://admin.shopify.com/store/store-seo-app-test/apps/storeseo-dev";
+
+test("resolveConfig: --url captured; blank and placeholder count as unset", () => {
+  assert.equal(resolveConfig(["--url", VERIFICATION_URL], NO_ENV).url, VERIFICATION_URL);
+  assert.equal(resolveConfig(["--url", ""], NO_ENV).url, "");
+  assert.equal(resolveConfig(["--url", "${user_config.whatever}"], NO_ENV).url, "");
+  assert.equal(resolveConfig([], NO_ENV).url, "");
+});
+
+test("launchArgs: profile mode opens directly at the start URL (no blank window)", () => {
+  assert.deepEqual(launchArgs("profile", "9223", FAKE_HOME, "chrome", VERIFICATION_URL), [
+    `--user-data-dir=${verifyProfileDir(FAKE_HOME, "chrome")}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--remote-debugging-port=9223",
+    VERIFICATION_URL,
+  ]);
+});
+
+test("launchArgs: attach mode never injects a start URL into the developer's browser", () => {
+  assert.deepEqual(launchArgs("attach", "9222", FAKE_HOME, "comet", VERIFICATION_URL), [
+    "--remote-debugging-port=9222",
+  ]);
+});
+
+test("launchArgs: profile mode without a URL stays URL-free", () => {
+  assert.deepEqual(launchArgs("profile", "9223", FAKE_HOME, "chrome", ""), [
+    `--user-data-dir=${verifyProfileDir(FAKE_HOME, "chrome")}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--remote-debugging-port=9223",
+  ]);
 });

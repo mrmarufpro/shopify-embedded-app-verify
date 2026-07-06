@@ -27,8 +27,11 @@ subprocesses such as hooks, never for Bash commands you run.
 Run:
 
 ```
-node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.browser}" --mode "${user_config.mode}" --port "${user_config.cdp_port}"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.browser}" --mode "${user_config.mode}" --port "${user_config.cdp_port}" --url "https://admin.shopify.com"
 ```
+
+Note the `BROWSER_STATE:` line in the output — `launched` or `reused` —
+step 3 branches on it.
 
 - Exit 0 → continue.
 - `CDP_BLOCKED_DEFAULT_PROFILE` → explain: this browser refuses CDP on its
@@ -43,13 +46,30 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.b
 
 ## 3. Open the verify window and check Shopify authentication
 
-Never open tabs in the developer's own windows. First `browser_tabs`
-(action: list).
+Never open tabs in the developer's own windows.
 
-**Case A — the browser was just launched by the preflight** (the list shows
-only blank tabs: `about:blank` / `chrome://new-tab-page`): reuse that
-startup window instead of opening a second one. Select it, grab its
-targetId with `browser_run_code_unsafe`:
+**Preflight said `BROWSER_STATE: launched`** (profile mode): the browser
+opened directly at `https://admin.shopify.com` — its only tab IS the
+verify window. `browser_tabs` (action: list), select that tab, grab its
+targetId with `browser_run_code_unsafe`, and continue to the auth check
+below:
+
+```js
+async (page) => {
+  const session = await page.context().newCDPSession(page);
+  const { targetInfo } = await session.send("Target.getTargetInfo");
+  await session.detach();
+  return targetInfo.targetId;
+}
+```
+
+**Preflight said `BROWSER_STATE: reused`**: `browser_tabs` (action: list),
+then:
+
+**Case A — the list shows only blank tabs** (`about:blank` /
+`chrome://new-tab-page` — a browser nobody is using): reuse that startup
+window instead of opening a second one. Select it, grab its targetId with
+`browser_run_code_unsafe`:
 
 ```js
 async (page) => {
@@ -83,7 +103,7 @@ tab that was not in the list before creation (new tabs are appended at the
 end); do not pick the first URL match, the developer may already have an
 admin tab open.
 
-**In both cases: save the targetId — step 5 closes the window with it.**
+**In all cases: save the targetId — step 5 closes the window with it.**
 
 - Lands on a store dashboard (`admin.shopify.com/store/...`) → authenticated.
 - Redirects to `accounts.shopify.com` login → tell the user: "Log into the

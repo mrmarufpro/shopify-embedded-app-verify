@@ -23,14 +23,14 @@ export const ERROR_CODES = {
 export function resolveConfig(argv, env) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
-    const match = argv[i].match(/^--(browser|mode|port)$/);
+    const match = argv[i].match(/^--(browser|mode|port|url)$/);
     if (match) {
       args[match[1]] = argv[i + 1] ?? "";
       i++;
     }
   }
   const pick = (argValue, envKey, fallback) => {
-    let value = (argValue ?? env[envKey] ?? "").trim();
+    let value = (argValue ?? (envKey ? env[envKey] : "") ?? "").trim();
     if (value.startsWith("${")) value = "";
     return value || fallback;
   };
@@ -38,6 +38,7 @@ export function resolveConfig(argv, env) {
     browser: pick(args.browser, "CLAUDE_PLUGIN_OPTION_BROWSER", "chrome"),
     mode: pick(args.mode, "CLAUDE_PLUGIN_OPTION_MODE", "profile").toLowerCase(),
     port: pick(args.port, "CLAUDE_PLUGIN_OPTION_CDP_PORT", "9222"),
+    url: pick(args.url, null, ""),
   };
 }
 
@@ -89,7 +90,10 @@ export function verifyProfileDir(home, browser) {
   return path.join(home, ".claude-browser-profiles", `shopify-verify-${key}`);
 }
 
-export function launchArgs(mode, port, home, browser) {
+// url: opened directly on launch (profile mode only — the automation browser
+// is wholly ours; attach mode never injects tabs into the developer's
+// relaunch). Skips the blank startup window entirely.
+export function launchArgs(mode, port, home, browser, url = "") {
   const args = [`--remote-debugging-port=${port}`];
   if (mode === "profile") {
     args.unshift(
@@ -97,6 +101,7 @@ export function launchArgs(mode, port, home, browser) {
       "--no-first-run",
       "--no-default-browser-check"
     );
+    if (url) args.push(url);
   }
   return args;
 }
@@ -235,7 +240,7 @@ function isBrowserRunning(binaryPath, platform) {
 }
 
 async function main() {
-  const { browser, mode, port } = resolveConfig(process.argv.slice(2), process.env);
+  const { browser, mode, port, url } = resolveConfig(process.argv.slice(2), process.env);
   if (mode !== "attach" && mode !== "profile") {
     console.error(`UNEXPECTED: invalid mode "${mode}" — use "attach" or "profile"`);
     process.exit(1);
@@ -272,6 +277,7 @@ async function main() {
       if (verdict === "unknown") {
         console.log(`(could not identify the process on port ${port} — reusing it)`);
       }
+      console.log("BROWSER_STATE: reused");
       console.log(`CDP alive on ${port}`);
       return;
     }
@@ -295,7 +301,7 @@ async function main() {
 
   if (mode === "profile") mkdirSync(verifyProfileDir(homedir(), browser), { recursive: true });
 
-  const child = spawn(binaryPath, launchArgs(mode, port, homedir(), browser), {
+  const child = spawn(binaryPath, launchArgs(mode, port, homedir(), browser, url), {
     detached: true,
     stdio: "ignore",
   });
@@ -314,6 +320,7 @@ async function main() {
     }
     fail("PORT_TIMEOUT", `CDP port ${port} did not open within 20s of launching ${binaryPath}.`);
   }
+  console.log("BROWSER_STATE: launched");
   console.log(`CDP alive on ${port}`);
 }
 

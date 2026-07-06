@@ -129,7 +129,7 @@ Values reach the plugin via `${user_config.*}` substitution — in the MCP confi
 
 Node ESM script, zero npm dependencies (Node is already required — the bundled MCP server runs via `npx`). One script for macOS, Windows, and Linux. Responsibilities:
 
-1. Resolve config: CLI flags `--browser` / `--mode` / `--port` (passed by the skills from `${user_config.*}` substitution) > `CLAUDE_PLUGIN_OPTION_*` env vars (plugin-subprocess callers only) > defaults `chrome` / `profile` / `9222`. Blank values and unsubstituted `${user_config...}` literals count as unset.
+1. Resolve config: CLI flags `--browser` / `--mode` / `--port` / `--url` (passed by the skills from `${user_config.*}` substitution) > `CLAUDE_PLUGIN_OPTION_*` env vars (plugin-subprocess callers only) > defaults `chrome` / `profile` / `9222`. Blank values and unsubstituted `${user_config...}` literals count as unset. `--url` = destination opened directly on a profile-mode launch. Output includes `BROWSER_STATE: launched|reused` so the skills know whether the browser's startup tab is already the verify window.
 2. Resolve the browser binary per OS (custom absolute path always passes through):
 
    | Browser | macOS | Windows | Linux |
@@ -154,7 +154,8 @@ The verify skill runs this (`node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.m
 
 To avoid disturbing the developer's open tabs, all verification happens in a dedicated window:
 
-- If the preflight just launched the browser (tab list shows only blank tabs — `about:blank` / `chrome://new-tab-page`), the skill reuses that startup window: reads its `targetId` via `Target.getTargetInfo` and navigates it to the destination. No second window for a browser nobody is using.
+- The skills pass the destination to the preflight as `--url`; a profile-mode launch opens the browser directly on it (positional argument) and reports `BROWSER_STATE: launched` — the browser's only tab IS the verify window (the skill reads its `targetId` via `Target.getTargetInfo`). No blank window at any point. Attach mode never injects a start URL into the developer's relaunch.
+- `BROWSER_STATE: reused` + tab list showing only blank tabs (`about:blank` / `chrome://new-tab-page`): the skill reuses that startup window — `Target.getTargetInfo` for the id, then navigates it. No second window for a browser nobody is using.
 - Otherwise (attach mode / browser already in use): created through the MCP server itself via `browser_run_code_unsafe` executing `page.context().newCDPSession(page)` → `Target.createTarget({url, newWindow: true})` — no bundled Node dependencies. `url` is the actual destination (verification URL / admin dashboard), so the window opens directly on it with no `about:blank` hop. The returned `targetId` is saved for cleanup.
 - The skill then selects the newly added tab (`browser_tabs` — the entry absent from the pre-creation list; not the first URL match, since the developer may have the same admin page open) and performs every subsequent `browser_navigate` / `browser_click` / `browser_snapshot` in it.
 - Loop end: window closed by default via `Target.closeTarget({targetId})` with the saved id — never `browser_close`/close-by-index, which act on the MCP's current tab and misfire among the developer's tabs. `keep the window open` in the user's request leaves it for manual inspection.

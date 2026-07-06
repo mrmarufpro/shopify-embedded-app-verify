@@ -26,38 +26,56 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
 
 ## 2. Preflight
 
-1. Run:
+1. Determine the verification URL first — the preflight opens the browser
+   directly on it when it has to launch one:
+   `https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>`
+   (`<page-path>` = the app route relevant to the change being verified).
+2. Run:
 
    ```
-   node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.browser}" --mode "${user_config.mode}" --port "${user_config.cdp_port}"
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.browser}" --mode "${user_config.mode}" --port "${user_config.cdp_port}" --url "<the verification URL>"
    ```
 
    (The `${user_config.*}` values are substituted into this skill at load
    time; blank or literal placeholders are fine — the script defaults to
    chrome / profile / 9222.)
-   - Exit 0 → CDP is live.
+   - Exit 0 → CDP is live. Note the `BROWSER_STATE:` line in the output —
+     `launched` or `reused` — step 3 branches on it.
    - Non-zero → show the script's stderr message to the user verbatim and stop.
      (`CDP_BLOCKED_DEFAULT_PROFILE` means: tell the user to switch the plugin's
      mode option to "profile" via /plugin → configure. `BROWSER_MISMATCH`
      means: a browser other than the configured one owns the CDP port — the
      user must quit it or change the browser/cdp_port option.)
-2. Probe the dev server: read `application_url` from the project's
+3. Probe the dev server: read `application_url` from the project's
    `shopify.app.toml`; `curl -s -o /dev/null -w "%{http_code}" --max-time 5 <url>`.
    Any HTTP status (including 4xx) = tunnel alive. Connection failure/timeout =
    ask the user to start their dev server, then stop. Do not start it yourself.
 
 ## 3. Open the verify window
 
-Verification URL:
-`https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>`
-(`<page-path>` = the app route relevant to the change being verified).
+Keep the developer's windows untouched.
 
-Keep the developer's windows untouched. First `browser_tabs` (action: list).
+**Preflight said `BROWSER_STATE: launched`** (profile mode): the browser
+opened directly at the verification URL — its only tab IS the verify
+window. `browser_tabs` (action: list), select that tab, grab its targetId
+with `browser_run_code_unsafe`, and skip to step 4:
 
-**Case A — the browser was just launched by the preflight** (the list shows
-only blank tabs: `about:blank` / `chrome://new-tab-page`): reuse that
-startup window instead of opening a second one. Select it, grab its
-targetId with `browser_run_code_unsafe`:
+```js
+async (page) => {
+  const session = await page.context().newCDPSession(page);
+  const { targetInfo } = await session.send("Target.getTargetInfo");
+  await session.detach();
+  return targetInfo.targetId;
+}
+```
+
+**Preflight said `BROWSER_STATE: reused`**: `browser_tabs` (action: list),
+then:
+
+**Case A — the list shows only blank tabs** (`about:blank` /
+`chrome://new-tab-page` — a browser nobody is using): reuse that startup
+window instead of opening a second one. Select it, grab its targetId with
+`browser_run_code_unsafe`:
 
 ```js
 async (page) => {
@@ -92,7 +110,7 @@ tab that was not in the list before creation (new tabs are appended at the
 end). Do not pick the first URL match: the developer may already have a tab
 open on the same admin page.
 
-**In both cases: save the targetId — step 6 closes the window with it.**
+**In all cases: save the targetId — step 6 closes the window with it.**
 Every subsequent navigation/interaction happens in this tab only.
 
 ## 4. Drive the app
