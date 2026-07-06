@@ -78,8 +78,18 @@ happens in this tab only.
      to log in there once, wait for their confirmation, retry.
 3. Wait for the app iframe (`iframeSelector` from config). The embedded app lives
    entirely inside that iframe — target all app selectors through it.
+   **Exception — App Bridge UI renders in the top admin document, outside the
+   iframe:** modals, toasts, the save bar, and title-bar actions will NOT
+   appear in an iframe-scoped snapshot. If UI you expect is missing from the
+   scoped snapshot, take an unscoped `browser_snapshot` (whole page) and
+   interact with it there.
 4. Interact per the plan: `browser_snapshot` first, then click/type/select,
    `browser_wait_for` after actions that trigger loading.
+   **Target syntax:** interaction tools take `target` = the ref exactly as
+   printed in the latest snapshot (e.g. `f6e393`), or a plain unique CSS
+   selector. Never `ref=f6e393` and never `iframe[...] >> [ref=...]` — both
+   fail ("Unknown engine ref" / "does not match any elements"). Refs go
+   stale after navigation or re-render: re-snapshot and use the fresh ref.
 5. Evidence: accessibility snapshots plus screenshots. Save screenshots to a
    temp location (never the project tree) and remember every path.
 
