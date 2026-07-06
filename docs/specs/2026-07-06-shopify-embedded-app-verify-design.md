@@ -184,7 +184,7 @@ One-time per developer per project:
 | CDP port dead | preflight probe | relaunch per mode; hard error with reason if still dead |
 | Browser blocks CDP on default profile (Chrome 136+, attach mode) | port never opens after relaunch with flag | explain constraint, instruct switch to `profile` mode |
 | Shopify session expired | URL redirects to `accounts.shopify.com` | attach: ask developer to log in in their browser; profile: open profile window, pause for one-time login |
-| Dev server/tunnel down | HTTP probe of `application_url` fails / iframe shows tunnel error | ask developer to start dev command; never auto-start |
+| Dev server/tunnel down | HTTP probe of `application_url` fails / iframe shows tunnel error | ask developer to start their dev server; never auto-start |
 | Iframe never appears | `frameLocator` timeout | screenshot the admin page, report what actually rendered (404, install prompt, error banner) |
 | App not installed on store | admin 404 page | report; suggest install link from dev server output |
 | Repeated assertion failure | 3 consecutive fails on same check | stop loop, report evidence, hand control back |
