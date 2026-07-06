@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { candidatePaths, launchArgs, verifyProfileDir } from "../scripts/ensure-browser.mjs";
+import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand } from "../scripts/ensure-browser.mjs";
 
 const WINDOWS_ENV = {
   PROGRAMFILES: "C:\\Program Files",
@@ -69,4 +69,42 @@ test("launchArgs: profile mode adds the dedicated user-data-dir", () => {
     `--user-data-dir=${verifyProfileDir(FAKE_HOME)}`,
     "--remote-debugging-port=9223",
   ]);
+});
+
+const COMET_MAC_BINARY = "/Applications/Comet.app/Contents/MacOS/Comet";
+const CHROME_WIN_BINARY = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const CHROME_LINUX_BINARY = "google-chrome";
+
+test("quitCommand: macOS quits the .app by name via osascript", () => {
+  assert.deepEqual(quitCommand(COMET_MAC_BINARY, "darwin"), {
+    cmd: "osascript",
+    args: ["-e", 'quit app "Comet"'],
+  });
+});
+
+test("quitCommand: Windows uses taskkill without /F (graceful WM_CLOSE)", () => {
+  const command = quitCommand(CHROME_WIN_BINARY, "win32");
+  assert.deepEqual(command, { cmd: "taskkill", args: ["/IM", "chrome.exe"] });
+  assert.ok(!command.args.includes("/F"));
+});
+
+test("quitCommand: Linux sends SIGTERM via pkill", () => {
+  assert.deepEqual(quitCommand(CHROME_LINUX_BINARY, "linux"), {
+    cmd: "pkill",
+    args: ["-TERM", "-f", "google-chrome"],
+  });
+});
+
+test("processCheckCommand: macOS/Linux use pgrep", () => {
+  assert.deepEqual(processCheckCommand(COMET_MAC_BINARY, "darwin"), {
+    cmd: "pgrep",
+    args: ["-f", "Comet"],
+  });
+});
+
+test("processCheckCommand: Windows uses tasklist filter", () => {
+  assert.deepEqual(processCheckCommand(CHROME_WIN_BINARY, "win32"), {
+    cmd: "tasklist",
+    args: ["/FI", "IMAGENAME eq chrome.exe", "/NH"],
+  });
 });

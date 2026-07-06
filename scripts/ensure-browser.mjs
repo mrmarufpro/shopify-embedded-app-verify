@@ -59,3 +59,28 @@ export function launchArgs(mode, port, home) {
   if (mode === "profile") args.unshift(`--user-data-dir=${verifyProfileDir(home)}`);
   return args;
 }
+
+function processName(binaryPath, platform) {
+  const base = binaryPath.split(platform === "win32" ? "\\" : "/").pop();
+  return base;
+}
+
+export function quitCommand(binaryPath, platform) {
+  if (platform === "darwin") {
+    const appMatch = binaryPath.match(/\/([^/]+)\.app\//);
+    const appName = appMatch ? appMatch[1] : processName(binaryPath, platform);
+    return { cmd: "osascript", args: ["-e", `quit app "${appName}"`] };
+  }
+  if (platform === "win32") {
+    return { cmd: "taskkill", args: ["/IM", processName(binaryPath, platform)] };
+  }
+  return { cmd: "pkill", args: ["-TERM", "-f", processName(binaryPath, platform)] };
+}
+
+export function processCheckCommand(binaryPath, platform) {
+  if (platform === "win32") {
+    const imageName = processName(binaryPath, platform);
+    return { cmd: "tasklist", args: ["/FI", `IMAGENAME eq ${imageName}`, "/NH"] };
+  }
+  return { cmd: "pgrep", args: ["-f", processName(binaryPath, platform)] };
+}
