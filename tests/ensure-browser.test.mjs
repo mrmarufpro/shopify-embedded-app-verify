@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import path from "node:path";
-import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand, probeCdp, waitFor } from "../scripts/ensure-browser.mjs";
+import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand, probeCdp, waitFor, resolveConfig } from "../scripts/ensure-browser.mjs";
 
 const WINDOWS_ENV = {
   PROGRAMFILES: "C:\\Program Files",
@@ -150,4 +150,53 @@ test("waitFor: resolves true once the check passes", async () => {
 test("waitFor: resolves false on timeout", async () => {
   const neverPasses = () => false;
   assert.equal(await waitFor(neverPasses, 100, 10), false);
+});
+
+const NO_ENV = {};
+const LEGACY_HOOK_ENV = {
+  CLAUDE_PLUGIN_OPTION_BROWSER: "brave",
+  CLAUDE_PLUGIN_OPTION_MODE: "attach",
+  CLAUDE_PLUGIN_OPTION_CDP_PORT: "9333",
+};
+
+test("resolveConfig: CLI args win over env", () => {
+  const config = resolveConfig(
+    ["--browser", "comet", "--mode", "profile", "--port", "9222"],
+    LEGACY_HOOK_ENV
+  );
+  assert.deepEqual(config, { browser: "comet", mode: "profile", port: "9222" });
+});
+
+test("resolveConfig: no args, no env → defaults", () => {
+  assert.deepEqual(resolveConfig([], NO_ENV), {
+    browser: "chrome",
+    mode: "profile",
+    port: "9222",
+  });
+});
+
+test("resolveConfig: blank arg values fall back to defaults", () => {
+  const config = resolveConfig(["--browser", "", "--mode", "", "--port", ""], NO_ENV);
+  assert.deepEqual(config, { browser: "chrome", mode: "profile", port: "9222" });
+});
+
+test("resolveConfig: unsubstituted ${user_config.*} placeholder treated as unset", () => {
+  const config = resolveConfig(
+    ["--browser", "${user_config.browser}", "--mode", "${user_config.mode}", "--port", "${user_config.cdp_port}"],
+    NO_ENV
+  );
+  assert.deepEqual(config, { browser: "chrome", mode: "profile", port: "9222" });
+});
+
+test("resolveConfig: env vars used when args absent (plugin-subprocess callers)", () => {
+  assert.deepEqual(resolveConfig([], LEGACY_HOOK_ENV), {
+    browser: "brave",
+    mode: "attach",
+    port: "9333",
+  });
+});
+
+test("resolveConfig: mode is trimmed and lowercased", () => {
+  const config = resolveConfig(["--mode", "  Attach  "], NO_ENV);
+  assert.equal(config.mode, "attach");
 });

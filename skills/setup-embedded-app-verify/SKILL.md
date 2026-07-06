@@ -9,13 +9,26 @@ Goal: a CDP-enabled, Shopify-authenticated browser plus a project config file.
 
 ## 1. Show the resolved developer config
 
-Read env: `CLAUDE_PLUGIN_OPTION_BROWSER`, `CLAUDE_PLUGIN_OPTION_MODE`,
-`CLAUDE_PLUGIN_OPTION_CDP_PORT`. Tell the user what is configured and that it
-can be changed anytime via `/plugin` → shopify-embedded-app-verify → configure.
+The plugin config is substituted into this skill at load time:
+
+- browser: `${user_config.browser}`
+- mode: `${user_config.mode}`
+- cdp_port: `${user_config.cdp_port}`
+
+A blank value (or a literal dollar-brace placeholder) means the default
+applies: chrome / profile / 9222. Tell the user the resolved values and that
+they can be changed anytime via `/plugin` → shopify-embedded-app-verify →
+configure (changes reach skills after `/reload-plugins` or a session restart).
+Do NOT read `CLAUDE_PLUGIN_OPTION_*` env vars — they are only set for plugin
+subprocesses such as hooks, never for Bash commands you run.
 
 ## 2. Ensure the browser
 
-Run: `node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs`
+Run:
+
+```
+node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.browser}" --mode "${user_config.mode}" --port "${user_config.cdp_port}"
+```
 
 - Exit 0 → continue.
 - `CDP_BLOCKED_DEFAULT_PROFILE` → explain: this browser refuses CDP on its

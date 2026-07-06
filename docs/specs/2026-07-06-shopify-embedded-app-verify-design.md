@@ -74,7 +74,7 @@ claude plugin marketplace add mrmarufpro/shopify-embedded-app-verify
 | `mode` | string enum | `profile` | `attach` (use daily browser's live session) \| `profile` (dedicated automation profile) |
 | `cdp_port` | string | `9222` | CDP debug port |
 
-Values reach the plugin via `${user_config.*}` substitution (MCP config) and `CLAUDE_PLUGIN_OPTION_*` env vars (scripts).
+Values reach the plugin via `${user_config.*}` substitution — in the MCP config AND in skill content, where the skills pass them to `ensure-browser.mjs` as CLI flags. `CLAUDE_PLUGIN_OPTION_*` env vars exist but are only exported to plugin subprocesses (hooks, MCP servers), never to skill-issued Bash commands, so scripts must not rely on them as the primary channel (the script keeps them as a fallback for hook callers).
 
 **Layer 2 — per-project.** Written by the setup skill into the project's `.claude/shopify-verify.json` (developer may gitignore or commit — app handle and store domain are not secrets):
 
@@ -129,7 +129,7 @@ Values reach the plugin via `${user_config.*}` substitution (MCP config) and `CL
 
 Node ESM script, zero npm dependencies (Node is already required — the bundled MCP server runs via `npx`). One script for macOS, Windows, and Linux. Responsibilities:
 
-1. Read `CLAUDE_PLUGIN_OPTION_BROWSER`, `CLAUDE_PLUGIN_OPTION_MODE`, `CLAUDE_PLUGIN_OPTION_CDP_PORT`.
+1. Resolve config: CLI flags `--browser` / `--mode` / `--port` (passed by the skills from `${user_config.*}` substitution) > `CLAUDE_PLUGIN_OPTION_*` env vars (plugin-subprocess callers only) > defaults `chrome` / `profile` / `9222`. Blank values and unsubstituted `${user_config...}` literals count as unset.
 2. Resolve the browser binary per OS (custom absolute path always passes through):
 
    | Browser | macOS | Windows | Linux |

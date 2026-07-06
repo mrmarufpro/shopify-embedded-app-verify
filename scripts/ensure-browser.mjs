@@ -15,6 +15,31 @@ export const ERROR_CODES = {
   PORT_TIMEOUT: 4,
 };
 
+// Config precedence: CLI args (from skill ${user_config.*} substitution) >
+// CLAUDE_PLUGIN_OPTION_* env (only set for plugin subprocesses like hooks —
+// NOT for skill-issued Bash commands) > defaults. An unsubstituted
+// "${user_config.*}" literal (older CLI) counts as unset.
+export function resolveConfig(argv, env) {
+  const args = {};
+  for (let i = 0; i < argv.length; i++) {
+    const match = argv[i].match(/^--(browser|mode|port)$/);
+    if (match) {
+      args[match[1]] = argv[i + 1] ?? "";
+      i++;
+    }
+  }
+  const pick = (argValue, envKey, fallback) => {
+    let value = (argValue ?? env[envKey] ?? "").trim();
+    if (value.startsWith("${")) value = "";
+    return value || fallback;
+  };
+  return {
+    browser: pick(args.browser, "CLAUDE_PLUGIN_OPTION_BROWSER", "chrome"),
+    mode: pick(args.mode, "CLAUDE_PLUGIN_OPTION_MODE", "profile").toLowerCase(),
+    port: pick(args.port, "CLAUDE_PLUGIN_OPTION_CDP_PORT", "9222"),
+  };
+}
+
 export function candidatePaths(browser, platform, env) {
   if (browser.includes("/") || browser.includes("\\")) return [browser];
   const key = browser.toLowerCase();
@@ -135,14 +160,13 @@ function isBrowserRunning(binaryPath, platform) {
 }
 
 async function main() {
-  const browser = process.env.CLAUDE_PLUGIN_OPTION_BROWSER || "chrome";
-  const mode = (process.env.CLAUDE_PLUGIN_OPTION_MODE || "profile").trim().toLowerCase();
+  const { browser, mode, port } = resolveConfig(process.argv.slice(2), process.env);
   if (mode !== "attach" && mode !== "profile") {
     console.error(`UNEXPECTED: invalid mode "${mode}" — use "attach" or "profile"`);
     process.exit(1);
   }
-  const port = process.env.CLAUDE_PLUGIN_OPTION_CDP_PORT || "9222";
   const platform = process.platform;
+  console.log(`Config: browser=${browser} mode=${mode} port=${port}`);
 
   if (await probeCdp(port)) {
     console.log(`CDP alive on ${port}`);

@@ -26,7 +26,15 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
 
 ## 2. Preflight
 
-1. Run: `node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs`
+1. Run:
+
+   ```
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.browser}" --mode "${user_config.mode}" --port "${user_config.cdp_port}"
+   ```
+
+   (The `${user_config.*}` values are substituted into this skill at load
+   time; blank or literal placeholders are fine — the script defaults to
+   chrome / profile / 9222.)
    - Exit 0 → CDP is live.
    - Non-zero → show the script's stderr message to the user verbatim and stop.
      (`CDP_BLOCKED_DEFAULT_PROFILE` means: tell the user to switch the plugin's
@@ -136,4 +144,5 @@ async (page) => {
 | Redirect to `accounts.shopify.com` | Session expired → step 4.2 |
 | Tunnel probe connection failure | Ask user to start their dev server; stop |
 | Iframe never appears | Screenshot the admin page; report what actually rendered (404 / install prompt / error banner); if 404, the app may not be installed on this store — point the user to the install link in their dev server output |
+| MCP tool errors `Browser context management is not supported` on first call | A stale or foreign Chromium holds the CDP port in a restricted state. Ask the user to quit the browser that owns the port, rerun the preflight (it relaunches a clean one), retry |
 | 3 consecutive assertion failures | Stop and report; do not thrash |
