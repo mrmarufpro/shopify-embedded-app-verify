@@ -1,0 +1,11 @@
+{
+  "name": "shopify-embedded-app-verify",
+  "owner": { "name": "Maruf Ahmed" },
+  "plugins": [
+    {
+      "name": "shopify-embedded-app-verify",
+      "source": "./",
+      "description": "Agentic verify loop for Shopify embedded apps — drives the real, authenticated Shopify admin in the developer's own browser."
+    }
+  ]
+}
