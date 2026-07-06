@@ -54,20 +54,39 @@ test("candidatePaths: browser name is case-insensitive", () => {
 
 const FAKE_HOME = path.join(path.sep, "home", "dev");
 
-test("verifyProfileDir: under home", () => {
+test("verifyProfileDir: per-browser dir under home — Comet prefs must not leak into Chrome", () => {
   assert.equal(
-    verifyProfileDir(FAKE_HOME),
-    path.join(FAKE_HOME, ".claude-browser-profiles", "shopify-verify")
+    verifyProfileDir(FAKE_HOME, "chrome"),
+    path.join(FAKE_HOME, ".claude-browser-profiles", "shopify-verify-chrome")
+  );
+  assert.equal(
+    verifyProfileDir(FAKE_HOME, "comet"),
+    path.join(FAKE_HOME, ".claude-browser-profiles", "shopify-verify-comet")
+  );
+});
+
+test("verifyProfileDir: custom binary path keys by executable basename", () => {
+  assert.equal(
+    verifyProfileDir(FAKE_HOME, "/opt/thorium/thorium"),
+    path.join(FAKE_HOME, ".claude-browser-profiles", "shopify-verify-thorium")
+  );
+  assert.equal(
+    verifyProfileDir(FAKE_HOME, "D:\\Browsers\\Comet.exe"),
+    path.join(FAKE_HOME, ".claude-browser-profiles", "shopify-verify-comet")
   );
 });
 
 test("launchArgs: attach mode only sets the debug port", () => {
-  assert.deepEqual(launchArgs("attach", "9222", FAKE_HOME), ["--remote-debugging-port=9222"]);
+  assert.deepEqual(launchArgs("attach", "9222", FAKE_HOME, "comet"), [
+    "--remote-debugging-port=9222",
+  ]);
 });
 
-test("launchArgs: profile mode adds the dedicated user-data-dir", () => {
-  assert.deepEqual(launchArgs("profile", "9223", FAKE_HOME), [
-    `--user-data-dir=${verifyProfileDir(FAKE_HOME)}`,
+test("launchArgs: profile mode adds per-browser user-data-dir and suppresses first-run tabs", () => {
+  assert.deepEqual(launchArgs("profile", "9223", FAKE_HOME, "chrome"), [
+    `--user-data-dir=${verifyProfileDir(FAKE_HOME, "chrome")}`,
+    "--no-first-run",
+    "--no-default-browser-check",
     "--remote-debugging-port=9223",
   ]);
 });
@@ -201,14 +220,18 @@ test("resolveConfig: mode is trimmed and lowercased", () => {
   assert.equal(config.mode, "attach");
 });
 
-const OUR_PROFILE_DIR = "/Users/dev/.claude-browser-profiles/shopify-verify";
+const COMET_PROFILE_DIR = "/Users/dev/.claude-browser-profiles/shopify-verify-comet";
+const LEGACY_SHARED_PROFILE_DIR = "/Users/dev/.claude-browser-profiles/shopify-verify";
+const OUR_PROFILE_DIR = COMET_PROFILE_DIR;
 const COMET_MAC_CANDIDATES = ["/Applications/Comet.app/Contents/MacOS/Comet"];
 const CHROME_LINUX_CANDIDATES = ["google-chrome", "google-chrome-stable"];
 
 const chromeAutomationCommandLine =
-  `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=${OUR_PROFILE_DIR} --remote-debugging-port=9222`;
+  `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=${LEGACY_SHARED_PROFILE_DIR} --remote-debugging-port=9222`;
 const cometAutomationCommandLine =
-  `/Applications/Comet.app/Contents/MacOS/Comet --user-data-dir=${OUR_PROFILE_DIR} --remote-debugging-port=9222`;
+  `/Applications/Comet.app/Contents/MacOS/Comet --user-data-dir=${COMET_PROFILE_DIR} --remote-debugging-port=9222`;
+const cometOnLegacySharedProfileCommandLine =
+  `/Applications/Comet.app/Contents/MacOS/Comet --user-data-dir=${LEGACY_SHARED_PROFILE_DIR} --remote-debugging-port=9222`;
 const cometAttachCommandLine =
   "/Applications/Comet.app/Contents/MacOS/Comet --remote-debugging-port=9222";
 const chromeDailyCommandLine =
@@ -226,6 +249,13 @@ test("classifyCdpOwner: our automation browser with configured binary → ours-m
 test("classifyCdpOwner: our automation browser with a different binary → ours-stale", () => {
   assert.equal(
     classifyCdpOwner(chromeAutomationCommandLine, COMET_MAC_CANDIDATES, OUR_PROFILE_DIR),
+    "ours-stale"
+  );
+});
+
+test("classifyCdpOwner: matching binary on the legacy shared profile dir → ours-stale (migrate)", () => {
+  assert.equal(
+    classifyCdpOwner(cometOnLegacySharedProfileCommandLine, COMET_MAC_CANDIDATES, COMET_PROFILE_DIR),
     "ours-stale"
   );
 });

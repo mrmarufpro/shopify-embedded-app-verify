@@ -80,13 +80,24 @@ export function candidatePaths(browser, platform, env) {
   return maps[platform]?.[key] ?? [];
 }
 
-export function verifyProfileDir(home) {
-  return path.join(home, ".claude-browser-profiles", "shopify-verify");
+// One profile dir per browser: Chromium forks sharing a user-data-dir leak
+// prefs into each other (e.g. Comet's perplexity.ai start page showing up in
+// Chrome) and risk profile-version corruption.
+export function verifyProfileDir(home, browser) {
+  const executable = browser.split(/[\\/]/).pop().toLowerCase().replace(/\.exe$/, "");
+  const key = executable.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "browser";
+  return path.join(home, ".claude-browser-profiles", `shopify-verify-${key}`);
 }
 
-export function launchArgs(mode, port, home) {
+export function launchArgs(mode, port, home, browser) {
   const args = [`--remote-debugging-port=${port}`];
-  if (mode === "profile") args.unshift(`--user-data-dir=${verifyProfileDir(home)}`);
+  if (mode === "profile") {
+    args.unshift(
+      `--user-data-dir=${verifyProfileDir(home, browser)}`,
+      "--no-first-run",
+      "--no-default-browser-check"
+    );
+  }
   return args;
 }
 
@@ -149,14 +160,19 @@ export function processCommandLineCommand(pid, platform) {
 export function classifyCdpOwner(commandLine, browserCandidates, profileDir) {
   if (!commandLine) return "unknown";
   const cmd = commandLine.toLowerCase();
-  const ours = cmd.includes(profileDir.toLowerCase());
+  // Anything under our profiles root was launched by this plugin (covers the
+  // pre-0.1.7 shared "shopify-verify" dir too); "-match" additionally
+  // requires the exact per-browser dir, so a legacy/mismatched dir is stale
+  // and gets replaced by a clean relaunch.
+  const ours = cmd.includes(path.dirname(profileDir).toLowerCase());
+  const exactProfile = cmd.includes(profileDir.toLowerCase());
   const executableBasename = cmd.split(/\s+/)[0].split(/[\\/]/).pop();
   const matches = browserCandidates.some((candidate) => {
     const lowered = candidate.toLowerCase();
     if (lowered.includes("/") || lowered.includes("\\")) return cmd.includes(lowered);
     return executableBasename === lowered;
   });
-  if (ours) return matches ? "ours-match" : "ours-stale";
+  if (ours) return matches && exactProfile ? "ours-match" : "ours-stale";
   return matches ? "foreign-match" : "foreign-mismatch";
 }
 
@@ -232,13 +248,13 @@ async function main() {
     const verdict = classifyCdpOwner(
       owner?.commandLine,
       candidatePaths(browser, platform, process.env),
-      verifyProfileDir(homedir())
+      verifyProfileDir(homedir(), browser)
     );
     if (verdict === "ours-stale") {
       // Our own automation browser from an earlier run, launched before the
       // browser config changed. Safe to quit — it is not the developer's.
       console.log(
-        `Port ${port} held by a previous automation browser (pid ${owner.pid}) that does not match browser=${browser} — quitting it...`
+        `Port ${port} held by a previous automation browser (pid ${owner.pid}) that does not match the configured browser/profile (browser=${browser}) — quitting it...`
       );
       if (platform === "win32") spawnSync("taskkill", ["/PID", String(owner.pid), "/T", "/F"]);
       else spawnSync("kill", ["-TERM", String(owner.pid)]);
@@ -277,9 +293,9 @@ async function main() {
     if (!quitDone) fail("PORT_TIMEOUT", "Browser did not quit within 15s. Close it manually and retry.");
   }
 
-  if (mode === "profile") mkdirSync(verifyProfileDir(homedir()), { recursive: true });
+  if (mode === "profile") mkdirSync(verifyProfileDir(homedir(), browser), { recursive: true });
 
-  const child = spawn(binaryPath, launchArgs(mode, port, homedir()), {
+  const child = spawn(binaryPath, launchArgs(mode, port, homedir(), browser), {
     detached: true,
     stdio: "ignore",
   });

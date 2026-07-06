@@ -2,7 +2,7 @@
   "name": "shopify-embedded-app-verify",
   "displayName": "Shopify Embedded App Verify",
   "description": "Agentic verify loop for Shopify embedded apps — drives the real, authenticated Shopify admin in the developer's own browser via CDP.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "author": { "name": "Maruf Ahmed" },
   "repository": "https://github.com/mrmarufpro/shopify-embedded-app-verify",
   "license": "MIT",

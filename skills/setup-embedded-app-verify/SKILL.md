@@ -69,8 +69,8 @@ admin tab open.
 - Lands on a store dashboard (`admin.shopify.com/store/...`) → authenticated.
 - Redirects to `accounts.shopify.com` login → tell the user: "Log into the
   Shopify admin in the verify window that just opened — the session
-  persists." (profile mode: one time only.) Wait for their confirmation,
-  then re-check.
+  persists." (profile mode: once per browser — each browser gets its own
+  automation profile.) Wait for their confirmation, then re-check.
 
 Keep the verify window open — the smoke test (step 5) reuses it.
 

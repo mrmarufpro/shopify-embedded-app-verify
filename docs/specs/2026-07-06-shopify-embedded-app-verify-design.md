@@ -121,7 +121,7 @@ Values reach the plugin via `${user_config.*}` substitution — in the MCP confi
 - Setup skill verifies attach actually works (probe after relaunch); if the port never opens, it tells the developer this browser blocks CDP on the default profile and switches them to `profile` mode.
 
 **`profile`** — dedicated automation profile, any Chromium.
-- Launch: `<binary> --user-data-dir=<home>/.claude-browser-profiles/shopify-verify --remote-debugging-port=<port>` (non-default dir ⇒ CDP allowed even on Chrome 136+).
+- Launch: `<binary> --user-data-dir=<home>/.claude-browser-profiles/shopify-verify-<browser> --no-first-run --no-default-browser-check --remote-debugging-port=<port>` (non-default dir ⇒ CDP allowed even on Chrome 136+). The profile dir is per-browser: Chromium forks sharing one user-data-dir leak preferences into each other (Comet's perplexity.ai start page appearing in Chrome) and risk profile-version corruption — the cost is one Shopify login per browser instead of one per plugin.
 - First run: setup skill opens the profile browser and waits while the developer logs into the Shopify admin once. Session persists on disk across reboots (weeks, until Shopify expires it).
 - Later runs: launch if not running, no login.
 
