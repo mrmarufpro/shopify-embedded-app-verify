@@ -168,8 +168,12 @@ Inputs: the plan/expected behavior (from conversation context or an explicit arg
 1. Preflight
    a. ensure-browser.mjs                     → CDP alive
    b. project config exists?                 → else run setup flow inline
-   c. dev server + tunnel reachable?         → probe application_url from shopify.app.toml;
-                                               if down, tell the user to start their dev server
+   c. dev server health                      → NOT probed here. Never curl application_url from
+                                               shopify.app.toml (shopify app dev mints a fresh
+                                               tunnel URL per run; the toml value may be stale).
+                                               Health is judged by what the app iframe renders in
+                                               step 4; if it shows a tunnel/connection error, tell
+                                               the user to check their dev server and stop
                                                (never auto-start — running the app is the user's job)
 2. Open verify window (§4.6) directly at
    https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>/<page-path>
@@ -207,7 +211,7 @@ One-time per developer per project:
 | CDP port dead | preflight probe | relaunch per mode; hard error with reason if still dead |
 | Browser blocks CDP on default profile (Chrome 136+, attach mode) | port never opens after relaunch with flag | explain constraint, instruct switch to `profile` mode |
 | Shopify session expired | URL redirects to `accounts.shopify.com` | attach: ask developer to log in in their browser; profile: open profile window, pause for one-time login |
-| Dev server/tunnel down | HTTP probe of `application_url` fails / iframe shows tunnel error | ask developer to start their dev server; never auto-start |
+| Dev server/tunnel down | iframe renders tunnel/connection error (DNS not found, connection refused, Cloudflare 1033) — never HTTP-probe `application_url`, the toml tunnel URL may be stale | ask developer to check/start their dev server; never auto-start |
 | Iframe never appears | `frameLocator` timeout | screenshot the admin page, report what actually rendered (404, install prompt, error banner) |
 | App not installed on store | admin 404 page | report; suggest install link from dev server output |
 | Repeated assertion failure | 3 consecutive fails on same check | stop loop, report evidence, hand control back |

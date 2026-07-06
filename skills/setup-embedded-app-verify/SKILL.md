@@ -138,8 +138,10 @@ Keep the verify window open — the smoke test (step 5) reuses it.
 2. Wait for the app iframe; take a screenshot; confirm the app rendered.
    - 404 → the app is not installed on this store; point the user to the dev
      server output's install link.
-   - Iframe loads an error/tunnel page → dev server is down; the loop needs it
-     running, but setup itself is complete.
+   - Iframe loads an error/tunnel page → the app's dev server is not running;
+     tell the user to check it (starting it is their job — never start or
+     curl-probe it yourself). The verify loop needs it running, but setup
+     itself is complete.
 3. Report the result and delete the screenshot.
 4. Close the verify window with `browser_run_code_unsafe` and the targetId
    saved in step 3 (never `browser_close` or close-by-index — both act on

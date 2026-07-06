@@ -85,13 +85,17 @@ subdomain of your dev store (the part before `.myshopify.com`).
 
 **Your dev server must already be running** (`shopify app dev`, or your
 project's equivalent) before you set up or verify. The plugin never starts
-it for you — running the app is your job; verifying it is the agent's.
+it for you — and never probes it either (tunnel URLs in `shopify.app.toml`
+can be stale, so curling them proves nothing). Running the app is your job;
+verifying it is the agent's. If the embedded app renders a tunnel or
+connection error inside the admin, the agent reports that you need to check
+your dev server and stops.
 
 ## 5. Usage
 
 Just ask, after making a change: "verify that the settings page save button
 works now" or "check that the new discount banner shows up." The agent runs
-the loop: preflight the browser and dev server, open a verify window — in
+the loop: preflight the browser, open a verify window — in
 `profile` mode the automation browser launches directly on the app page; in
 `attach` mode a dedicated new window opens so your own tabs are never
 touched — pierce the app's iframe, interact per the plan, capture an accessibility snapshot

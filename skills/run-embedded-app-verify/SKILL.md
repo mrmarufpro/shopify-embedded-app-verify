@@ -9,7 +9,11 @@ Closed loop: preflight → dedicated verify window → navigate the embedded app
 interact → assert against the plan → report. On mismatch: fix the code and loop.
 
 Hard rules:
-- NEVER start the project's dev server. If it is down, tell the user and stop.
+- The dev server is the developer's responsibility. NEVER start it, and NEVER
+  probe it — do not curl the `application_url` from `shopify.app.toml` or any
+  tunnel URL: `shopify app dev` mints a fresh tunnel URL per run, so the toml
+  value may not be the one actually serving. Judge dev-server health only by
+  what the app iframe renders (step 4). If it is down, tell the user and stop.
 - NEVER touch browser tabs other than the verify tab you created. The rest of
   the browser belongs to the developer.
 - Delete every screenshot you take once the report is delivered (see step 6).
@@ -46,10 +50,8 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
      mode option to "profile" via /plugin → configure. `BROWSER_MISMATCH`
      means: a browser other than the configured one owns the CDP port — the
      user must quit it or change the browser/cdp_port option.)
-3. Probe the dev server: read `application_url` from the project's
-   `shopify.app.toml`; `curl -s -o /dev/null -w "%{http_code}" --max-time 5 <url>`.
-   Any HTTP status (including 4xx) = tunnel alive. Connection failure/timeout =
-   ask the user to start their dev server, then stop. Do not start it yourself.
+Do NOT probe the dev server or any tunnel URL here (hard rule above) — the
+app iframe render in step 4 is the only dev-server health check.
 
 ## 3. Open the verify window
 
@@ -124,7 +126,15 @@ Every subsequent navigation/interaction happens in this tab only.
    - attach mode → ask the user to log into the Shopify admin in their browser, wait, retry.
    - profile mode → leave the verify window open on the login page, ask the user
      to log in there once, wait for their confirmation, retry.
-3. Wait for the app iframe (`iframeSelector` from config). The embedded app lives
+3. Wait for the app iframe (`iframeSelector` from config), then take an
+   iframe-scoped `browser_snapshot`. If it shows a tunnel/connection error
+   instead of the app UI — "server IP address could not be found",
+   `ERR_NAME_NOT_RESOLVED`, `ERR_CONNECTION_REFUSED`, a Cloudflare tunnel
+   error page (e.g. error 1033), or a bare "can't be reached" page — the
+   app's dev server is not running or not reachable. Report exactly that to
+   the user, ask them to check that their dev server is running, and stop.
+   Do not curl anything and do not start the server (hard rule above).
+   The embedded app lives
    entirely inside that iframe — target all app selectors through it.
    **Exception — App Bridge UI renders in the top admin document, outside the
    iframe:** modals, toasts, the save bar, and title-bar actions will NOT
@@ -182,7 +192,7 @@ async (page) => {
 |---------|--------|
 | `ensure-browser.mjs` non-zero | Show its message verbatim; stop |
 | Redirect to `accounts.shopify.com` | Session expired → step 4.2 |
-| Tunnel probe connection failure | Ask user to start their dev server; stop |
+| Iframe renders tunnel/connection error (DNS not found, connection refused, Cloudflare 1033) | Dev server not running/reachable → report to user, ask them to check it, stop. Never curl a tunnel URL, never start the server |
 | Iframe never appears | Screenshot the admin page; report what actually rendered (404 / install prompt / error banner); if 404, the app may not be installed on this store — point the user to the install link in their dev server output |
 | MCP tool errors `Browser context management is not supported` on first call | A stale or foreign Chromium holds the CDP port in a restricted state. Ask the user to quit the browser that owns the port, rerun the preflight (it relaunches a clean one), retry |
 | 3 consecutive assertion failures | Stop and report; do not thrash |
