@@ -52,7 +52,7 @@ shopify-embedded-app-verify/
 │   └── verify/
 │       └── SKILL.md           # /shopify-embedded-app-verify:verify — the loop
 ├── scripts/
-│   └── ensure-browser.sh      # dependency-free preflight (bash + curl only)
+│   └── ensure-browser.mjs     # cross-platform preflight (Node, zero npm deps)
 ├── docs/specs/                # this spec
 └── README.md
 ```
@@ -110,25 +110,34 @@ Values reach the plugin via `${user_config.*}` substitution (MCP config) and `CL
 ### 4.4 Browser modes
 
 **`attach`** — developer's daily browser, existing sessions.
-- Preflight: probe `http://localhost:<port>/json/version`. If dead: graceful quit (`osascript -e 'quit app'` on macOS), wait for process exit, relaunch `open -a <Browser> --args --remote-debugging-port=<port>` (tabs restore via session restore).
+- Preflight: probe `http://localhost:<port>/json/version`. If dead: graceful quit, wait for process exit, relaunch with `--remote-debugging-port=<port>` (tabs restore via the browser's session restore).
 - Works on: Comet (proven). Any Chromium fork that hasn't adopted Chrome's 136+ restriction.
 - Setup skill verifies attach actually works (probe after relaunch); if the port never opens, it tells the developer this browser blocks CDP on the default profile and switches them to `profile` mode.
 
 **`profile`** — dedicated automation profile, any Chromium.
-- Launch: `<binary> --user-data-dir=$HOME/.claude-browser-profiles/shopify-verify --remote-debugging-port=<port>` (non-default dir ⇒ CDP allowed even on Chrome 136+).
+- Launch: `<binary> --user-data-dir=<home>/.claude-browser-profiles/shopify-verify --remote-debugging-port=<port>` (non-default dir ⇒ CDP allowed even on Chrome 136+).
 - First run: setup skill opens the profile browser and waits while the developer logs into the Shopify admin once. Session persists on disk across reboots (weeks, until Shopify expires it).
 - Later runs: launch if not running, no login.
 
-### 4.5 `ensure-browser.sh` (preflight script)
+### 4.5 `ensure-browser.mjs` (preflight script)
 
-Dependency-free bash. Responsibilities:
+Node ESM script, zero npm dependencies (Node is already required — the bundled MCP server runs via `npx`). One script for macOS, Windows, and Linux. Responsibilities:
 
 1. Read `CLAUDE_PLUGIN_OPTION_BROWSER`, `CLAUDE_PLUGIN_OPTION_MODE`, `CLAUDE_PLUGIN_OPTION_CDP_PORT`.
-2. Resolve browser binary path (known map for comet/chrome/chromium on macOS; pass-through for custom absolute path). Linux paths included best-effort; macOS is the supported target initially.
-3. If CDP port already alive → exit 0 (idempotent).
-4. Otherwise launch/relaunch per mode (§4.4), poll the port up to ~20 s, exit non-zero with a human-readable reason on failure (`BROWSER_NOT_FOUND`, `CDP_BLOCKED_DEFAULT_PROFILE`, `PORT_TIMEOUT`).
+2. Resolve the browser binary per OS (custom absolute path always passes through):
 
-The verify skill runs this before touching MCP tools and surfaces script errors verbatim.
+   | Browser | macOS | Windows | Linux |
+   |---------|-------|---------|-------|
+   | chrome | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` | `%ProgramFiles%\Google\Chrome\Application\chrome.exe` (+ x86/LocalAppData variants) | `google-chrome`, `google-chrome-stable` on PATH |
+   | chromium | `/Applications/Chromium.app/...` | `%LocalAppData%\Chromium\Application\chrome.exe` | `chromium`, `chromium-browser` on PATH |
+   | comet | `/Applications/Comet.app/Contents/MacOS/Comet` | `%LocalAppData%\Perplexity\Comet\Application\comet.exe` (best-effort) | not distributed — custom path |
+   | brave / edge | analogous well-known install paths | analogous | analogous |
+
+3. If the CDP port is already alive → exit 0 (idempotent).
+4. Otherwise launch/relaunch per mode (§4.4). Graceful quit per OS: macOS `osascript -e 'quit app'`; Linux `SIGTERM` to the browser process; Windows `taskkill /IM <exe>` **without** `/F` (sends WM_CLOSE). All three preserve session restore.
+5. Poll the port up to ~20 s; exit non-zero with a machine-readable reason (`BROWSER_NOT_FOUND`, `CDP_BLOCKED_DEFAULT_PROFILE`, `PORT_TIMEOUT`) plus a human-readable message.
+
+The verify skill runs this (`node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs`) before touching MCP tools and surfaces script errors verbatim.
 
 ### 4.6 Verify window
 
@@ -144,7 +153,7 @@ Inputs: the plan/expected behavior (from conversation context or an explicit arg
 
 ```
 1. Preflight
-   a. ensure-browser.sh                      → CDP alive
+   a. ensure-browser.mjs                     → CDP alive
    b. project config exists?                 → else run setup flow inline
    c. dev server + tunnel reachable?         → probe application_url from shopify.app.toml;
                                                if down, tell the user to start their dev server
@@ -172,7 +181,7 @@ during the run, are read into the report, then deleted by default.
 One-time per developer per project:
 
 1. Echo the resolved userConfig (browser/mode/port); tell the developer how to change it (`/plugin` → configure).
-2. Run `ensure-browser.sh`; on `profile` mode first run, pause: "log into the Shopify admin in the window that just opened, then continue."
+2. Run `ensure-browser.mjs`; on `profile` mode first run, pause: "log into the Shopify admin in the window that just opened, then continue."
 3. Verify authentication: navigate to `admin.shopify.com`, assert no redirect to `accounts.shopify.com` login.
 4. Derive `appHandle` from `shopify.app.toml`; ask for `storeDomain`; write `.claude/shopify-verify.json`.
 5. Smoke test: open verify window → embedded app page → pierce iframe → screenshot → report.
@@ -197,13 +206,12 @@ One-time per developer per project:
 
 ## 7. Testing strategy
 
-- **Script tests:** bats or plain-bash assertions for `ensure-browser.sh` argument/branch logic (binary resolution, port probe short-circuit) — no live browser needed.
+- **Script tests:** `node --test` unit tests for `ensure-browser.mjs` pure logic (binary resolution per OS, port probe short-circuit, error codes) — no live browser needed; runs in CI on ubuntu/macos/windows runners.
 - **Manual acceptance matrix (README checklist):** attach+Comet, profile+Chrome, each: setup → verify smoke test.
 - **Dogfood:** first real consumer is the StoreSEO repo; acceptance = agent completes one full edit→verify→fix cycle on a real UI change.
 
 ## 8. Out of scope (v1)
 
-- Windows/Linux support (script structure allows later addition; macOS first).
 - Multi-store parallel verification.
 - Video/trace recording of verify runs.
 - Auto-starting the project dev server.
