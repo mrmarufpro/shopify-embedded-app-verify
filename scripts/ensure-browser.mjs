@@ -1,0 +1,49 @@
+#!/usr/bin/env node
+// Preflight for the shopify-embedded-app-verify plugin: ensure a Chromium
+// with an open CDP port is running, per the developer's browser/mode config.
+// Zero npm dependencies; Node >= 18.
+
+export const ERROR_CODES = {
+  BROWSER_NOT_FOUND: 2,
+  CDP_BLOCKED_DEFAULT_PROFILE: 3,
+  PORT_TIMEOUT: 4,
+};
+
+export function candidatePaths(browser, platform, env) {
+  if (browser.includes("/") || browser.includes("\\")) return [browser];
+  const key = browser.toLowerCase();
+  const programFiles = env.PROGRAMFILES || "C:\\Program Files";
+  const programFilesX86 = env["PROGRAMFILES(X86)"] || "C:\\Program Files (x86)";
+  const localAppData = env.LOCALAPPDATA || "";
+  const maps = {
+    darwin: {
+      chrome: ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
+      chromium: ["/Applications/Chromium.app/Contents/MacOS/Chromium"],
+      comet: ["/Applications/Comet.app/Contents/MacOS/Comet"],
+      brave: ["/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"],
+      edge: ["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
+    },
+    win32: {
+      chrome: [
+        `${programFiles}\\Google\\Chrome\\Application\\chrome.exe`,
+        `${programFilesX86}\\Google\\Chrome\\Application\\chrome.exe`,
+        `${localAppData}\\Google\\Chrome\\Application\\chrome.exe`,
+      ],
+      chromium: [`${localAppData}\\Chromium\\Application\\chrome.exe`],
+      comet: [`${localAppData}\\Perplexity\\Comet\\Application\\comet.exe`],
+      brave: [`${programFiles}\\BraveSoftware\\Brave-Browser\\Application\\brave.exe`],
+      edge: [
+        `${programFilesX86}\\Microsoft\\Edge\\Application\\msedge.exe`,
+        `${programFiles}\\Microsoft\\Edge\\Application\\msedge.exe`,
+      ],
+    },
+    linux: {
+      chrome: ["google-chrome", "google-chrome-stable"],
+      chromium: ["chromium", "chromium-browser"],
+      comet: [],
+      brave: ["brave-browser"],
+      edge: ["microsoft-edge"],
+    },
+  };
+  return maps[platform]?.[key] ?? [];
+}
