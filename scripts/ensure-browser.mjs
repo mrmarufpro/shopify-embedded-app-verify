@@ -3,6 +3,8 @@
 // with an open CDP port is running, per the developer's browser/mode config.
 // Zero npm dependencies; Node >= 18.
 
+import path from "node:path";
+
 export const ERROR_CODES = {
   BROWSER_NOT_FOUND: 2,
   CDP_BLOCKED_DEFAULT_PROFILE: 3,
@@ -46,4 +48,14 @@ export function candidatePaths(browser, platform, env) {
     },
   };
   return maps[platform]?.[key] ?? [];
+}
+
+export function verifyProfileDir(home) {
+  return path.join(home, ".claude-browser-profiles", "shopify-verify");
+}
+
+export function launchArgs(mode, port, home) {
+  const args = [`--remote-debugging-port=${port}`];
+  if (mode === "profile") args.unshift(`--user-data-dir=${verifyProfileDir(home)}`);
+  return args;
 }

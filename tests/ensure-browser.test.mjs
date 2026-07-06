@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { candidatePaths } from "../scripts/ensure-browser.mjs";
+import path from "node:path";
+import { candidatePaths, launchArgs, verifyProfileDir } from "../scripts/ensure-browser.mjs";
 
 const WINDOWS_ENV = {
   PROGRAMFILES: "C:\\Program Files",
@@ -48,4 +49,24 @@ test("candidatePaths: unknown browser name", () => {
 
 test("candidatePaths: browser name is case-insensitive", () => {
   assert.equal(candidatePaths("Chrome", "darwin", {}).length, 1);
+});
+
+const FAKE_HOME = path.join(path.sep, "home", "dev");
+
+test("verifyProfileDir: under home", () => {
+  assert.equal(
+    verifyProfileDir(FAKE_HOME),
+    path.join(FAKE_HOME, ".claude-browser-profiles", "shopify-verify")
+  );
+});
+
+test("launchArgs: attach mode only sets the debug port", () => {
+  assert.deepEqual(launchArgs("attach", "9222", FAKE_HOME), ["--remote-debugging-port=9222"]);
+});
+
+test("launchArgs: profile mode adds the dedicated user-data-dir", () => {
+  assert.deepEqual(launchArgs("profile", "9223", FAKE_HOME), [
+    `--user-data-dir=${verifyProfileDir(FAKE_HOME)}`,
+    "--remote-debugging-port=9223",
+  ]);
 });
