@@ -9,6 +9,6 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test tests/"
+    "test": "node --test"
   }
 }
