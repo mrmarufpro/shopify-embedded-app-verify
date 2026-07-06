@@ -39,12 +39,13 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
 ## 3. Open the verify window
 
 Create a separate browser window so the developer's windows stay untouched.
-Use `browser_run_code_unsafe` (adapt the wrapper to the tool's documented shape):
+Use `browser_run_code_unsafe` (the code is invoked with the current page as
+its single argument; if the tool reports no open tab, run `browser_tabs`
+action list first so one is selected):
 
 ```js
-async ({ context }) => {
-  const anyPage = context.pages()[0];
-  const session = await context.newCDPSession(anyPage);
+async (page) => {
+  const session = await page.context().newCDPSession(page);
   const { targetId } = await session.send("Target.createTarget", {
     url: "about:blank",
     newWindow: true,
@@ -54,8 +55,12 @@ async ({ context }) => {
 }
 ```
 
-Then `browser_tabs` (action: list), select the newly created `about:blank` tab.
-Every subsequent navigation/interaction happens in this tab only.
+**Save the returned targetId — step 6 closes the window with it.**
+
+Then `browser_tabs` (action: list) and select the new `about:blank` entry.
+Match it by URL, never by position: the developer may have dozens of tabs
+and list order is not stable. Every subsequent navigation/interaction
+happens in this tab only.
 
 ## 4. Drive the app
 
@@ -87,7 +92,20 @@ toasts, network side effects visible in the UI.
 
 ## 6. Cleanup
 
-1. Close the verify tab/window — unless the user asked to keep it open.
+1. Close the verify window — unless the user asked to keep it open — with
+   `browser_run_code_unsafe` and the targetId saved in step 3:
+
+```js
+async (page) => {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Target.closeTarget", { targetId: "<targetId from step 3>" });
+}
+```
+
+   Never use `browser_close` or close-by-index instead: both act on the
+   MCP's notion of the current tab, which closes the wrong tab — or
+   nothing — when the developer has many tabs open. If the tool errors
+   because its own page just closed, the window did close: that is success.
 2. Delete every screenshot taken during this run. Exception: if the user asked
    to keep them, move them to `<project>/.claude/verify-screenshots/<YYYYMMDD-HHmmss>/`
    and say where they are.

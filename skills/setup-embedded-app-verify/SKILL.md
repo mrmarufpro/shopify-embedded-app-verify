@@ -23,19 +23,36 @@ Run: `node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs`
   option to "profile" (dedicated automation profile, one-time login). Stop.
 - Other non-zero → show the message verbatim; stop.
 
-## 3. Verify Shopify authentication
+## 3. Open the verify window and check Shopify authentication
 
-Navigate (in a new tab via the plugin's browser tools) to
-`https://admin.shopify.com`.
+Never open tabs in the developer's own windows. Open a dedicated verify
+window with `browser_run_code_unsafe` (the code is invoked with the current
+page as its single argument; if the tool reports no open tab, run
+`browser_tabs` action list first so one is selected):
+
+```js
+async (page) => {
+  const session = await page.context().newCDPSession(page);
+  const { targetId } = await session.send("Target.createTarget", {
+    url: "about:blank",
+    newWindow: true,
+  });
+  await session.detach();
+  return targetId;
+}
+```
+
+**Save the returned targetId — step 5 closes the window with it.**
+Then `browser_tabs` (action: list) and select the new `about:blank` entry —
+match by URL, never by position. Navigate it to `https://admin.shopify.com`.
 
 - Lands on a store dashboard (`admin.shopify.com/store/...`) → authenticated.
-- Redirects to `accounts.shopify.com` login:
-  - profile mode, first run → expected. Tell the user: "Log into the Shopify
-    admin in the browser window that just opened — one time only; the session
-    persists." Wait for their confirmation, then re-check.
-  - attach mode → ask the user to log into Shopify in their browser, then re-check.
+- Redirects to `accounts.shopify.com` login → tell the user: "Log into the
+  Shopify admin in the verify window that just opened — the session
+  persists." (profile mode: one time only.) Wait for their confirmation,
+  then re-check.
 
-Close the tab you opened once authenticated.
+Keep the verify window open — the smoke test (step 5) reuses it.
 
 ## 4. Write the project config
 
@@ -55,11 +72,22 @@ Close the tab you opened once authenticated.
 
 ## 5. Smoke test
 
-1. Open a verify window (same CDP snippet as the run-embedded-app-verify skill, step 3).
-2. Navigate to `https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>`.
-3. Wait for the app iframe; take a screenshot; confirm the app rendered.
+1. In the verify window from step 3, navigate to
+   `https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>`.
+2. Wait for the app iframe; take a screenshot; confirm the app rendered.
    - 404 → the app is not installed on this store; point the user to the dev
      server output's install link.
    - Iframe loads an error/tunnel page → dev server is down; the loop needs it
      running, but setup itself is complete.
-4. Report the result, close the verify window, delete the screenshot.
+3. Report the result and delete the screenshot.
+4. Close the verify window with `browser_run_code_unsafe` and the targetId
+   saved in step 3 (never `browser_close` or close-by-index — both act on
+   the current tab and misfire when the developer has many tabs open; if the
+   tool errors because its own page just closed, the window did close):
+
+```js
+async (page) => {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Target.closeTarget", { targetId: "<targetId from step 3>" });
+}
+```

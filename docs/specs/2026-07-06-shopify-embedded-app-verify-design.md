@@ -143,9 +143,9 @@ The verify skill runs this (`node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.m
 
 To avoid disturbing the developer's open tabs, all verification happens in a dedicated window:
 
-- Created through the MCP server itself via `browser_run_code_unsafe` executing `context.newCDPSession(page)` → `Target.createTarget({url, newWindow: true})` — no bundled Node dependencies.
-- The skill then selects the new tab (`browser_tabs`) and performs every subsequent `browser_navigate` / `browser_click` / `browser_snapshot` in it.
-- Loop end: window closed by default; `keep the window open` in the user's request leaves it for manual inspection.
+- Created through the MCP server itself via `browser_run_code_unsafe` executing `page.context().newCDPSession(page)` → `Target.createTarget({url, newWindow: true})` — no bundled Node dependencies. The returned `targetId` is saved for cleanup.
+- The skill then selects the new `about:blank` tab (`browser_tabs`, matched by URL — never by position) and performs every subsequent `browser_navigate` / `browser_click` / `browser_snapshot` in it.
+- Loop end: window closed by default via `Target.closeTarget({targetId})` with the saved id — never `browser_close`/close-by-index, which act on the MCP's current tab and misfire among the developer's tabs. `keep the window open` in the user's request leaves it for manual inspection.
 
 ### 4.7 The verify loop (skill `/shopify-embedded-app-verify:verify`)
 
@@ -182,9 +182,9 @@ One-time per developer per project:
 
 1. Echo the resolved userConfig (browser/mode/port); tell the developer how to change it (`/plugin` → configure).
 2. Run `ensure-browser.mjs`; on `profile` mode first run, pause: "log into the Shopify admin in the window that just opened, then continue."
-3. Verify authentication: navigate to `admin.shopify.com`, assert no redirect to `accounts.shopify.com` login.
+3. Open the verify window (§4.6), navigate it to `admin.shopify.com`, assert no redirect to `accounts.shopify.com` login. Never open tabs in the developer's own windows.
 4. Derive `appHandle` from `shopify.app.toml`; ask for `storeDomain`; write `.claude/shopify-verify.json`.
-5. Smoke test: open verify window → embedded app page → pierce iframe → screenshot → report.
+5. Smoke test in the same verify window: embedded app page → pierce iframe → screenshot → report → close the window via `Target.closeTarget`.
 
 ## 5. Error handling
 
@@ -201,7 +201,7 @@ One-time per developer per project:
 ## 6. Security considerations
 
 - An open CDP port allows **any local process** to control the browser and all its sessions. Localhost-only, but real. README and setup skill state this plainly; developers quit/relaunch the browser normally to close the port. `profile` mode confines exposure to the automation profile's sessions only.
-- `browser_run_code_unsafe` is used solely for the fixed window-creation snippet.
+- `browser_run_code_unsafe` is used solely for the fixed window-creation and window-close snippets.
 - No credentials are ever stored by the plugin; sessions live in the browser profile as with normal use.
 
 ## 7. Testing strategy
