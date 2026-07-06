@@ -38,7 +38,9 @@ If the file is missing, run the `setup-embedded-app-verify` skill flow first (sa
    - Exit 0 → CDP is live.
    - Non-zero → show the script's stderr message to the user verbatim and stop.
      (`CDP_BLOCKED_DEFAULT_PROFILE` means: tell the user to switch the plugin's
-     mode option to "profile" via /plugin → configure.)
+     mode option to "profile" via /plugin → configure. `BROWSER_MISMATCH`
+     means: a browser other than the configured one owns the CDP port — the
+     user must quit it or change the browser/cdp_port option.)
 2. Probe the dev server: read `application_url` from the project's
    `shopify.app.toml`; `curl -s -o /dev/null -w "%{http_code}" --max-time 5 <url>`.
    Any HTTP status (including 4xx) = tunnel alive. Connection failure/timeout =

@@ -139,9 +139,14 @@ Node ESM script, zero npm dependencies (Node is already required — the bundled
    | comet | `/Applications/Comet.app/Contents/MacOS/Comet` | `%LocalAppData%\Perplexity\Comet\Application\comet.exe` (best-effort) | not distributed — custom path |
    | brave / edge | analogous well-known install paths | analogous | analogous |
 
-3. If the CDP port is already alive → exit 0 (idempotent).
+3. If the CDP port is already alive → identify the owning process (lsof/ps on macOS+Linux, Get-NetTCPConnection/Win32_Process on Windows) and classify it against the configured browser:
+   - launched by this plugin (command line contains the automation profile dir) and binary matches → reuse, exit 0
+   - launched by this plugin but binary differs (config changed since) → quit that process (safe — it is ours), fall through to a fresh launch
+   - foreign process, binary matches config → reuse, exit 0 (attach-mode happy path)
+   - foreign process, binary differs → exit `BROWSER_MISMATCH`; never touch the developer's own browser
+   - owner unidentifiable → reuse with a warning (previous behavior)
 4. Otherwise launch/relaunch per mode (§4.4). Graceful quit per OS: macOS `osascript -e 'quit app'`; Linux `SIGTERM` to the browser process; Windows `taskkill /IM <exe>` **without** `/F` (sends WM_CLOSE). All three preserve session restore.
-5. Poll the port up to ~20 s; exit non-zero with a machine-readable reason (`BROWSER_NOT_FOUND`, `CDP_BLOCKED_DEFAULT_PROFILE`, `PORT_TIMEOUT`) plus a human-readable message.
+5. Poll the port up to ~20 s; exit non-zero with a machine-readable reason (`BROWSER_NOT_FOUND`, `CDP_BLOCKED_DEFAULT_PROFILE`, `PORT_TIMEOUT`, `BROWSER_MISMATCH`) plus a human-readable message.
 
 The verify skill runs this (`node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs`) before touching MCP tools and surfaces script errors verbatim.
 

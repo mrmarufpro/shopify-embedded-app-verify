@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import path from "node:path";
-import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand, probeCdp, waitFor, resolveConfig } from "../scripts/ensure-browser.mjs";
+import { candidatePaths, launchArgs, verifyProfileDir, processCheckCommand, quitCommand, probeCdp, waitFor, resolveConfig, classifyCdpOwner, listenerPidCommand, processCommandLineCommand } from "../scripts/ensure-browser.mjs";
 
 const WINDOWS_ENV = {
   PROGRAMFILES: "C:\\Program Files",
@@ -199,4 +199,79 @@ test("resolveConfig: env vars used when args absent (plugin-subprocess callers)"
 test("resolveConfig: mode is trimmed and lowercased", () => {
   const config = resolveConfig(["--mode", "  Attach  "], NO_ENV);
   assert.equal(config.mode, "attach");
+});
+
+const OUR_PROFILE_DIR = "/Users/dev/.claude-browser-profiles/shopify-verify";
+const COMET_MAC_CANDIDATES = ["/Applications/Comet.app/Contents/MacOS/Comet"];
+const CHROME_LINUX_CANDIDATES = ["google-chrome", "google-chrome-stable"];
+
+const chromeAutomationCommandLine =
+  `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=${OUR_PROFILE_DIR} --remote-debugging-port=9222`;
+const cometAutomationCommandLine =
+  `/Applications/Comet.app/Contents/MacOS/Comet --user-data-dir=${OUR_PROFILE_DIR} --remote-debugging-port=9222`;
+const cometAttachCommandLine =
+  "/Applications/Comet.app/Contents/MacOS/Comet --remote-debugging-port=9222";
+const chromeDailyCommandLine =
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9222";
+const linuxChromeCommandLine =
+  "/usr/bin/google-chrome --remote-debugging-port=9222";
+
+test("classifyCdpOwner: our automation browser with configured binary → ours-match", () => {
+  assert.equal(
+    classifyCdpOwner(cometAutomationCommandLine, COMET_MAC_CANDIDATES, OUR_PROFILE_DIR),
+    "ours-match"
+  );
+});
+
+test("classifyCdpOwner: our automation browser with a different binary → ours-stale", () => {
+  assert.equal(
+    classifyCdpOwner(chromeAutomationCommandLine, COMET_MAC_CANDIDATES, OUR_PROFILE_DIR),
+    "ours-stale"
+  );
+});
+
+test("classifyCdpOwner: developer's browser matching config → foreign-match", () => {
+  assert.equal(
+    classifyCdpOwner(cometAttachCommandLine, COMET_MAC_CANDIDATES, OUR_PROFILE_DIR),
+    "foreign-match"
+  );
+});
+
+test("classifyCdpOwner: developer's browser NOT matching config → foreign-mismatch", () => {
+  assert.equal(
+    classifyCdpOwner(chromeDailyCommandLine, COMET_MAC_CANDIDATES, OUR_PROFILE_DIR),
+    "foreign-mismatch"
+  );
+});
+
+test("classifyCdpOwner: Linux bare PATH candidate matches by executable basename", () => {
+  assert.equal(
+    classifyCdpOwner(linuxChromeCommandLine, CHROME_LINUX_CANDIDATES, OUR_PROFILE_DIR),
+    "foreign-match"
+  );
+});
+
+test("classifyCdpOwner: empty/unreadable command line → unknown", () => {
+  assert.equal(classifyCdpOwner("", COMET_MAC_CANDIDATES, OUR_PROFILE_DIR), "unknown");
+  assert.equal(classifyCdpOwner(null, COMET_MAC_CANDIDATES, OUR_PROFILE_DIR), "unknown");
+});
+
+test("listenerPidCommand: macOS/Linux use lsof, Windows uses Get-NetTCPConnection", () => {
+  assert.deepEqual(listenerPidCommand("9222", "darwin"), {
+    cmd: "lsof",
+    args: ["-ti", "tcp:9222", "-sTCP:LISTEN"],
+  });
+  const windowsCommand = listenerPidCommand("9222", "win32");
+  assert.equal(windowsCommand.cmd, "powershell");
+  assert.ok(windowsCommand.args.join(" ").includes("Get-NetTCPConnection -LocalPort 9222"));
+});
+
+test("processCommandLineCommand: ps on macOS/Linux, Win32_Process on Windows", () => {
+  assert.deepEqual(processCommandLineCommand(50269, "darwin"), {
+    cmd: "ps",
+    args: ["-p", "50269", "-ww", "-o", "command="],
+  });
+  const windowsCommand = processCommandLineCommand(50269, "win32");
+  assert.equal(windowsCommand.cmd, "powershell");
+  assert.ok(windowsCommand.args.join(" ").includes("ProcessId=50269"));
 });

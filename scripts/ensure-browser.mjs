@@ -13,6 +13,7 @@ export const ERROR_CODES = {
   BROWSER_NOT_FOUND: 2,
   CDP_BLOCKED_DEFAULT_PROFILE: 3,
   PORT_TIMEOUT: 4,
+  BROWSER_MISMATCH: 5,
 };
 
 // Config precedence: CLI args (from skill ${user_config.*} substitution) >
@@ -113,6 +114,64 @@ export function processCheckCommand(binaryPath, platform) {
   return { cmd: "pgrep", args: ["-f", processName(binaryPath, platform)] };
 }
 
+export function listenerPidCommand(port, platform) {
+  if (platform === "win32") {
+    return {
+      cmd: "powershell",
+      args: [
+        "-NoProfile",
+        "-Command",
+        `(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess`,
+      ],
+    };
+  }
+  return { cmd: "lsof", args: ["-ti", `tcp:${port}`, "-sTCP:LISTEN"] };
+}
+
+export function processCommandLineCommand(pid, platform) {
+  if (platform === "win32") {
+    return {
+      cmd: "powershell",
+      args: [
+        "-NoProfile",
+        "-Command",
+        `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}").CommandLine`,
+      ],
+    };
+  }
+  return { cmd: "ps", args: ["-p", String(pid), "-ww", "-o", "command="] };
+}
+
+// Who owns the live CDP port, relative to the configured browser?
+// - "ours-*": launched by this plugin (command line contains our profile dir)
+// - "foreign-*": the developer's own browser — never touched automatically
+// - "-match"/"-stale"/"-mismatch": binary does / does not match the config
+export function classifyCdpOwner(commandLine, browserCandidates, profileDir) {
+  if (!commandLine) return "unknown";
+  const cmd = commandLine.toLowerCase();
+  const ours = cmd.includes(profileDir.toLowerCase());
+  const executableBasename = cmd.split(/\s+/)[0].split(/[\\/]/).pop();
+  const matches = browserCandidates.some((candidate) => {
+    const lowered = candidate.toLowerCase();
+    if (lowered.includes("/") || lowered.includes("\\")) return cmd.includes(lowered);
+    return executableBasename === lowered;
+  });
+  if (ours) return matches ? "ours-match" : "ours-stale";
+  return matches ? "foreign-match" : "foreign-mismatch";
+}
+
+export function inspectCdpOwner(port, platform) {
+  const pidCommand = listenerPidCommand(port, platform);
+  const pidResult = spawnSync(pidCommand.cmd, pidCommand.args, { encoding: "utf8" });
+  const pid = parseInt((pidResult.stdout || "").trim().split(/\s+/)[0], 10);
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  const cmdCommand = processCommandLineCommand(pid, platform);
+  const cmdResult = spawnSync(cmdCommand.cmd, cmdCommand.args, { encoding: "utf8" });
+  const commandLine = (cmdResult.stdout || "").trim();
+  if (!commandLine) return null;
+  return { pid, commandLine };
+}
+
 export async function probeCdp(port, timeoutMs = 2000) {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
@@ -169,8 +228,37 @@ async function main() {
   console.log(`Config: browser=${browser} mode=${mode} port=${port}`);
 
   if (await probeCdp(port)) {
-    console.log(`CDP alive on ${port}`);
-    return;
+    const owner = inspectCdpOwner(port, platform);
+    const verdict = classifyCdpOwner(
+      owner?.commandLine,
+      candidatePaths(browser, platform, process.env),
+      verifyProfileDir(homedir())
+    );
+    if (verdict === "ours-stale") {
+      // Our own automation browser from an earlier run, launched before the
+      // browser config changed. Safe to quit — it is not the developer's.
+      console.log(
+        `Port ${port} held by a previous automation browser (pid ${owner.pid}) that does not match browser=${browser} — quitting it...`
+      );
+      if (platform === "win32") spawnSync("taskkill", ["/PID", String(owner.pid), "/T", "/F"]);
+      else spawnSync("kill", ["-TERM", String(owner.pid)]);
+      const portFreed = await waitFor(async () => !(await probeCdp(port)), 15000, 500);
+      if (!portFreed) {
+        fail("PORT_TIMEOUT", `Old automation browser (pid ${owner.pid}) did not release port ${port} within 15s. Close it manually and retry.`);
+      }
+      // fall through to the normal launch flow below
+    } else if (verdict === "foreign-mismatch") {
+      fail(
+        "BROWSER_MISMATCH",
+        `CDP port ${port} is served by a different browser than configured (browser=${browser}). Owner: ${owner.commandLine.slice(0, 160)}. Quit that browser, or change the plugin's browser/cdp_port option.`
+      );
+    } else {
+      if (verdict === "unknown") {
+        console.log(`(could not identify the process on port ${port} — reusing it)`);
+      }
+      console.log(`CDP alive on ${port}`);
+      return;
+    }
   }
 
   const binaryPath = resolveBinary(browser, platform, process.env);

@@ -34,6 +34,11 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-browser.mjs --browser "${user_config.b
 - `CDP_BLOCKED_DEFAULT_PROFILE` → explain: this browser refuses CDP on its
   default profile (Chrome/Edge 136+). The user must switch the plugin's mode
   option to "profile" (dedicated automation profile, one-time login). Stop.
+- `BROWSER_MISMATCH` → the CDP port is already served by a browser that is
+  not the configured one (and not one this plugin launched). Show the
+  message verbatim — the user must quit that browser or change the plugin's
+  browser/cdp_port option. Stop. (A stale automation browser from an earlier
+  run is handled automatically — the script quits it and relaunches.)
 - Other non-zero → show the message verbatim; stop.
 
 ## 3. Open the verify window and check Shopify authentication
