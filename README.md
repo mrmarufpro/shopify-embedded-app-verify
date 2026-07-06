@@ -61,7 +61,7 @@ shopify-embedded-app-verify → configure.
 Run once per project:
 
 ```
-/shopify-embedded-app-verify:setup
+/shopify-embedded-app-verify:setup-embedded-app-verify
 ```
 
 This shows your resolved developer config, makes sure a CDP-enabled browser
@@ -103,7 +103,7 @@ moved to `<project>/.claude/verify-screenshots/<timestamp>/` instead.
 ## 6. Security
 
 - An open CDP port allows **any local process** to control the browser and
-  all its sessions. Localhost-only, but real. README and setup skill state
+  all its sessions. Localhost-only, but real. README and the setup-embedded-app-verify skill state
   this plainly; developers quit/relaunch the browser normally to close the
   port. `profile` mode confines exposure to the automation profile's
   sessions only.
@@ -131,7 +131,7 @@ setup once, then a verify smoke test.
 **attach + Comet**
 
 - [ ] Set `mode` to `attach`, `browser` to `comet`
-- [ ] Run `/shopify-embedded-app-verify:setup` — CDP comes up on Comet's
+- [ ] Run `/shopify-embedded-app-verify:setup-embedded-app-verify` — CDP comes up on Comet's
       default profile, no login prompt (session already authenticated)
 - [ ] Ask the agent to verify any small, real change in a Shopify embedded
       app project — confirm a dedicated verify window opens, the app iframe
@@ -141,7 +141,7 @@ setup once, then a verify smoke test.
 **profile + Chrome**
 
 - [ ] Set `mode` to `profile`, `browser` to `chrome`
-- [ ] Run `/shopify-embedded-app-verify:setup` — the automation profile
+- [ ] Run `/shopify-embedded-app-verify:setup-embedded-app-verify` — the automation profile
       launches, you log into the Shopify admin once, and
       `.claude/shopify-verify.json` is written
 - [ ] Quit and relaunch Chrome (or reboot); ask the agent to verify a change

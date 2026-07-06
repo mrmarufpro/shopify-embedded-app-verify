@@ -1,5 +1,5 @@
 ---
-name: verify
+name: run-embedded-app-verify
 description: Verify a Shopify embedded-app change by driving the real, authenticated Shopify admin in the developer's browser. Use after changing app code when the user asks to verify, check, or test the change in the browser/admin, or asks to run the verify loop.
 ---
 
@@ -22,7 +22,7 @@ Read `.claude/shopify-verify.json` in the project root:
 { "appHandle": "...", "storeDomain": "...", "iframeSelector": "iframe[name=\"app-iframe\"]" }
 ```
 
-If the file is missing, run the `setup` skill flow first (same plugin), then continue.
+If the file is missing, run the `setup-embedded-app-verify` skill flow first (same plugin), then continue.
 
 ## 2. Preflight
 

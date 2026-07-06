@@ -1,6 +1,6 @@
 ---
-name: setup
-description: One-time setup for the Shopify embedded-app verify loop in a project. Use when the user asks to set up / configure the verify loop, or when the verify skill finds no project config.
+name: setup-embedded-app-verify
+description: One-time setup for the Shopify embedded-app verify loop in a project. Use when the user asks to set up / configure the verify loop, or when the run-embedded-app-verify skill finds no project config.
 ---
 
 # Set up the embedded-app verify loop
@@ -55,7 +55,7 @@ Close the tab you opened once authenticated.
 
 ## 5. Smoke test
 
-1. Open a verify window (same CDP snippet as the verify skill, step 3).
+1. Open a verify window (same CDP snippet as the run-embedded-app-verify skill, step 3).
 2. Navigate to `https://admin.shopify.com/store/<storeDomain>/apps/<appHandle>`.
 3. Wait for the app iframe; take a screenshot; confirm the app rendered.
    - 404 → the app is not installed on this store; point the user to the dev
