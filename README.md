@@ -1,3 +1,5 @@
+<img width="740" height="480" alt="Screen Recording 2026-07-13 at 10 20 35 AM (online-video-cutter com)" src="https://github.com/user-attachments/assets/98fb9e11-cdab-423a-a957-0b89899a5c92" />
+
 # Shopify Embedded App Verify
 
 A Claude Code plugin that closes the verification loop for agentic Shopify
